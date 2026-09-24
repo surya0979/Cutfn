@@ -1,7 +1,7 @@
-import { Activity, Flame, Footprints, Plus, Scale, SportShoe, Trash2, TriangleAlert } from 'lucide-react'
+import { Activity, Dumbbell, Flame, Footprints, Plus, Scale, SportShoe, Trash2, TriangleAlert, Volleyball } from 'lucide-react'
 import { useState } from 'react'
 import { formatShortDate, formatTime } from '../lib/dates.js'
-import { distanceBurn, formatPace, JUMP_ROPE, jumpRopeBurn } from '../lib/exercise.js'
+import { distanceBurn, formatPace, JUMP_ROPE, jumpRopeBurn, TIMED_ACTIVITIES, timedBurn } from '../lib/exercise.js'
 import { dayPossessive } from '../lib/labels.js'
 import { COLORS } from '../lib/theme.js'
 import { fmt1, fmtInt, fromKg, fromKm, toKm } from '../lib/units.js'
@@ -244,15 +244,77 @@ function JumpRopeForm({ weightKg, onAdd }) {
   )
 }
 
+function TimedForm({ kind, weightKg, onAdd }) {
+  const activity = TIMED_ACTIVITIES[kind]
+  const [minutes, setMinutes] = useState('')
+  const [level, setLevel] = useState('moderate')
+  const mins = positive(minutes)
+  const result = mins ? timedBurn({ kind, minutes: mins, level, weightKg }) : null
+  const preset = activity.levels[level]
+
+  const submit = (e) => {
+    e.preventDefault()
+    if (!result) return
+    onAdd({ kind, minutes: mins, level })
+    setMinutes('')
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-3">
+      <Field label="Minutes">
+        {(id) => (
+          <input
+            id={id}
+            type="number"
+            inputMode="numeric"
+            min={0}
+            value={minutes}
+            onChange={(e) => setMinutes(e.target.value)}
+            placeholder={kind === 'football' ? 'e.g. 60' : 'e.g. 45'}
+            className={inputClass}
+          />
+        )}
+      </Field>
+      <div>
+        <p className="mb-1.5 text-xs font-medium text-ink-2">
+          Intensity <span className="font-normal text-muted">{preset.detail} · {preset.met} MET</span>
+        </p>
+        <Segmented
+          label={`${activity.label} intensity`}
+          value={level}
+          onChange={setLevel}
+          className="w-full"
+          options={Object.entries(activity.levels).map(([value, l]) => ({ value, label: l.label }))}
+        />
+      </div>
+      <BurnPreview
+        result={result}
+        emptyText="Enter how many minutes to see the calorie burn."
+        details={result && `${Math.round(result.minutes)} min of ${activity.label.toLowerCase()} · ${preset.label.toLowerCase()}`}
+        formula={result && formulaText(result.met, weightKg, result.minutes)}
+      />
+      <Button type="submit" disabled={!result} className="w-full">
+        <Plus className="size-4" aria-hidden /> Log {activity.label.toLowerCase()}
+      </Button>
+    </form>
+  )
+}
+
 const KIND = {
   walk: { label: 'Walk', icon: Footprints },
   run: { label: 'Run', icon: SportShoe },
   jumprope: { label: 'Jump rope', icon: Activity },
+  football: { label: 'Football', icon: Volleyball },
+  gym: { label: 'Gym', icon: Dumbbell },
 }
 
 function describe(entry, distanceUnit) {
   const { burn } = entry
   if (!burn) return { title: KIND[entry.kind]?.label ?? 'Exercise', detail: '' }
+  if (TIMED_ACTIVITIES[entry.kind]) {
+    const level = TIMED_ACTIVITIES[entry.kind].levels[entry.level] ?? TIMED_ACTIVITIES[entry.kind].levels.moderate
+    return { title: `${KIND[entry.kind].label} · ${Math.round(entry.minutes)} min`, detail: `${level.label} · ${fmt1(burn.met)} MET` }
+  }
   if (entry.kind === 'jumprope') {
     return {
       title: `Jump rope · ${entry.mode === 'skips' ? `${fmtInt(entry.skips)} skips` : `${fmt1(entry.minutes)} min`}`,
@@ -279,16 +341,16 @@ export default function CardioLog({ exercises, bodyWeight, weightUnit, distanceU
         value={tab}
         onChange={setTab}
         tabs={[
-          { value: 'distance', label: 'Walk / Run', icon: Footprints },
-          { value: 'rope', label: 'Jump rope', icon: Activity },
+          { value: 'distance', label: 'Walk/Run', icon: Footprints },
+          { value: 'rope', label: 'Rope', icon: Activity },
+          { value: 'football', label: 'Football', icon: Volleyball },
+          { value: 'gym', label: 'Gym', icon: Dumbbell },
         ]}
       />
       <TabPanel value={tab}>
-        {tab === 'distance' ? (
-          <DistanceForm weightKg={bodyWeight.kg} distanceUnit={distanceUnit} onDistanceUnitChange={onDistanceUnitChange} onAdd={onAdd} />
-        ) : (
-          <JumpRopeForm weightKg={bodyWeight.kg} onAdd={onAdd} />
-        )}
+        {tab === 'distance' && <DistanceForm weightKg={bodyWeight.kg} distanceUnit={distanceUnit} onDistanceUnitChange={onDistanceUnitChange} onAdd={onAdd} />}
+        {tab === 'rope' && <JumpRopeForm weightKg={bodyWeight.kg} onAdd={onAdd} />}
+        {(tab === 'football' || tab === 'gym') && <TimedForm key={tab} kind={tab} weightKg={bodyWeight.kg} onAdd={onAdd} />}
       </TabPanel>
 
       <div className="mt-5 border-t border-line pt-4">

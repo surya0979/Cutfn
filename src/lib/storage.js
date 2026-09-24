@@ -5,6 +5,9 @@ export const STORAGE_KEYS = {
   exercises: 'cutfn.v1.exercises',
   weights: 'cutfn.v1.weights',
   settings: 'cutfn.v1.settings',
+  water: 'cutfn.v1.water',
+  savedMeals: 'cutfn.v1.savedMeals',
+  menus: 'cutfn.v1.menus',
 }
 
 function read(key, fallback) {

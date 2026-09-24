@@ -75,7 +75,7 @@ export function Tabs({ label, value, onChange, tabs }) {
               active ? 'bg-volt text-page' : 'text-muted hover:text-ink'
             }`}
           >
-            {Icon && <Icon className="size-4" aria-hidden />}
+            {Icon && <Icon className={`size-4 ${tabs.length > 3 ? 'hidden sm:block' : ''}`} aria-hidden />}
             {tab.label}
           </button>
         )

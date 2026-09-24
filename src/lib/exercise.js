@@ -48,6 +48,33 @@ export const JUMP_ROPE = {
   fast: { label: 'Fast', detail: '120–160 skips/min', met: 12.3, skipsPerMin: 140 },
 }
 
+// Timed sports and training (2011 Compendium codes 15605/15610, 02050/02054/02052).
+export const TIMED_ACTIVITIES = {
+  football: {
+    label: 'Football',
+    levels: {
+      light: { label: 'Kickabout', detail: 'casual, lots of standing', met: 7.0 },
+      moderate: { label: 'Game', detail: 'regular match play', met: 8.5 },
+      hard: { label: 'Competitive', detail: 'full-intensity match', met: 10.0 },
+    },
+  },
+  gym: {
+    label: 'Gym',
+    levels: {
+      light: { label: 'Light', detail: 'machines, long rests', met: 3.5 },
+      moderate: { label: 'Moderate', detail: 'free weights, normal rests', met: 5.0 },
+      hard: { label: 'Hard', detail: 'heavy lifts or circuits', met: 6.0 },
+    },
+  },
+}
+
+/** Football or gym for a number of minutes at an intensity. */
+export function timedBurn({ kind, minutes, level = 'moderate', weightKg }) {
+  const preset = TIMED_ACTIVITIES[kind]?.levels[level] ?? TIMED_ACTIVITIES[kind]?.levels.moderate
+  if (!preset || !(minutes > 0) || !(weightKg > 0)) return null
+  return { met: preset.met, minutes, kcal: kcalFromMet(preset.met, weightKg, minutes) }
+}
+
 export function interpolateMet(table, speedMph) {
   if (speedMph <= table[0][0]) return table[0][1]
   const last = table[table.length - 1]
@@ -102,6 +129,9 @@ export function jumpRopeBurn({ mode, skips, minutes, intensity = 'moderate', wei
 
 /** Recompute a stored exercise entry against a body weight. */
 export function exerciseBurn(entry, weightKg) {
+  if (TIMED_ACTIVITIES[entry.kind]) {
+    return timedBurn({ ...entry, weightKg })
+  }
   if (entry.kind === 'jumprope') {
     return jumpRopeBurn({ ...entry, weightKg })
   }

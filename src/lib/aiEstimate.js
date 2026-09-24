@@ -91,3 +91,15 @@ export async function estimateFoods(description, { signal } = {}) {
     throw new Error(MESSAGES[err?.code] ?? 'Couldn’t reach Claude for an estimate. Check your connection and try again.')
   }
 }
+
+/** Ask Claude a free-form question and get plain text back. */
+export async function askClaude(prompt, { signal } = {}) {
+  const sample = await getSample()
+  if (!sample) throw new Error('AI features only work in the claude.ai version of Cutfn.')
+  try {
+    const { text } = await sample(prompt, { modelTier: 'quick', signal })
+    return text.trim()
+  } catch (err) {
+    throw new Error(MESSAGES[err?.code] ?? 'Couldn’t reach Claude. Check your connection and try again.')
+  }
+}

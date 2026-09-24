@@ -1,13 +1,18 @@
 import { useMemo, useState } from 'react'
 import CardioLog from './components/CardioLog.jsx'
-import Dashboard from './components/Dashboard.jsx'
+import Dashboard, { Guardrails } from './components/Dashboard.jsx'
 import Header from './components/Header.jsx'
 import LogMeal from './components/LogMeal.jsx'
 import MealList from './components/MealList.jsx'
+import TodayMenu from './components/TodayMenu.jsx'
+import WeeklyCheckIn from './components/WeeklyCheckIn.jsx'
 import WeightSection from './components/WeightSection.jsx'
-import { formatDay } from './lib/dates.js'
+import { addDays, formatDay } from './lib/dates.js'
 import { exerciseBurn } from './lib/exercise.js'
-import { useTrackerData } from './lib/trackerStore.js'
+import { dailyTotals, guardrails, proteinIdeas, smartTarget } from './lib/insights.js'
+import { sectionForTime, sectionOf } from './lib/sections.js'
+import { HISTORY_DAYS, useTrackerData } from './lib/trackerStore.js'
+import { menuFoods, menuForDate } from './lib/weeklyMenu.js'
 import { useToday } from './lib/useToday.js'
 import { resolveBodyWeight } from './lib/weight.js'
 
@@ -18,8 +23,26 @@ export default function App() {
   const date = viewDate && viewDate < today ? viewDate : today
   const dayLabel = formatDay(date, today)
 
-  const { dayMeals, recentMeals, dayExercises: rawExercises, weights, settings, actions, mode, ready, error, clearError } = useTrackerData(date)
+  const {
+    dayMeals,
+    recentMeals,
+    dayExercises: rawExercises,
+    historyMeals,
+    historyExercises,
+    weights,
+    water,
+    savedMeals,
+    menus,
+    settings,
+    actions,
+    mode,
+    ready,
+    error,
+    clearError,
+  } = useTrackerData(date, today)
   const updateSettings = actions.updateSettings
+  const [section, setSection] = useState(() => sectionForTime())
+  const [prefillRequest, setPrefillRequest] = useState(null)
 
   // Burns are recomputed from stored inputs against the latest weigh-in as of
   // that day, so logging a new weight immediately updates the day's totals.
@@ -57,8 +80,46 @@ export default function App() {
     return out
   }, [recentMeals])
 
+  // Six weeks of daily totals feed the weekly check-in, smart target and guardrails.
+  const days = useMemo(
+    () => dailyTotals({ meals: historyMeals, exercises: historyExercises, weights, from: addDays(today, -HISTORY_DAYS), to: today }),
+    [historyMeals, historyExercises, weights, today],
+  )
+  const smart = useMemo(() => smartTarget({ days, weights, today }), [days, weights, today])
+  const warnings = useMemo(() => guardrails({ days, weights, today, targetKcal: settings.targetKcal }), [days, weights, today, settings.targetKcal])
+
+  const menuToday = useMemo(() => menuForDate(menus, date), [menus, date])
+  const ideas = useMemo(() => proteinIdeas(menuToday ? menuFoods(menuToday.entries).foods.map((f) => f.food) : []), [menuToday])
+
+  const comboKey = (items) =>
+    items
+      .map((m) => m.name.toLowerCase())
+      .sort()
+      .join('|')
+  const savedKeys = useMemo(() => new Set(savedMeals.map((u) => comboKey(u.items))), [savedMeals])
+  // A section eaten the same way on another day is worth saving as a usual.
+  const repeatedSections = useMemo(() => {
+    const groups = new Map()
+    for (const m of historyMeals) {
+      if (m.date === date) continue
+      const k = `${m.date}|${sectionOf(m)}`
+      if (!groups.has(k)) groups.set(k, [])
+      groups.get(k).push(m)
+    }
+    return new Set([...groups].filter(([, items]) => items.length >= 2).map(([k, items]) => `${k.split('|')[1]}:${comboKey(items)}`))
+  }, [historyMeals, date])
+
+  const glasses = water.find((w) => w.date === date)?.glasses ?? 0
+
   const stamp = (entry) => ({ ...entry, date, createdAt: Date.now() })
-  const addMeal = (meal) => actions.addMeal(stamp(meal))
+  const addMeal = (meal) => actions.addMeal(stamp({ ...meal, section: meal.section ?? section }))
+  const addFood = (food) =>
+    addMeal({ name: food.name, portion: food.portion, kcal: food.kcal, protein: food.p, carbs: food.c, fat: food.f, source: 'menu' })
+  const logUsual = (usual) => usual.items.forEach((item, i) => actions.addMeal({ ...item, source: 'usual', section, date, createdAt: Date.now() + i }))
+  const openManual = (name) => {
+    setPrefillRequest({ name, at: Date.now() })
+    document.getElementById('food')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
   const addExercise = (entry) => actions.addExercise(stamp(entry))
   // One weigh-in per day: saving again for the same date replaces it.
   const saveWeight = ({ date: day, kg }) => actions.saveWeight({ date: day, kg, createdAt: Date.now() })
@@ -77,6 +138,8 @@ export default function App() {
       )}
 
       <main aria-busy={!ready} className={`transition-opacity ${ready ? '' : 'opacity-60'} mx-auto max-w-6xl space-y-4 px-4 py-4 sm:space-y-6 sm:py-6`}>
+        <Guardrails warnings={warnings} />
+
         <Dashboard
           consumed={totals.consumed}
           burned={totals.burned}
@@ -86,6 +149,9 @@ export default function App() {
           onProteinTargetChange={(proteinTarget) => updateSettings({ proteinTarget })}
           macros={totals.macros}
           dayLabel={dayLabel}
+          proteinIdeas={ideas}
+          onAddFood={addFood}
+          water={{ glasses, goal: settings.waterGoal, onChange: (n) => actions.setWater(date, n) }}
         />
 
         <WeightSection
@@ -100,8 +166,35 @@ export default function App() {
 
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2 lg:items-start">
           <div className="space-y-4 sm:space-y-6">
-            <LogMeal onAdd={addMeal} recentFoods={recentFoods} dayLabel={dayLabel} />
-            <MealList meals={dayMeals} onDelete={actions.deleteMeal} dayLabel={dayLabel} />
+            <TodayMenu
+              date={date}
+              today={today}
+              menus={menus}
+              onSaveMenus={actions.saveMenus}
+              onDeleteMenu={actions.deleteMenu}
+              onAdd={addMeal}
+              onManual={openManual}
+            />
+            <LogMeal
+              onAdd={addMeal}
+              recentFoods={recentFoods}
+              dayLabel={dayLabel}
+              section={section}
+              onSectionChange={setSection}
+              usuals={savedMeals}
+              onLogUsual={logUsual}
+              onDeleteUsual={actions.deleteCombo}
+              prefillRequest={prefillRequest}
+            />
+            <MealList
+              meals={dayMeals}
+              onDelete={actions.deleteMeal}
+              onUpdate={actions.updateMeal}
+              onSaveUsual={actions.saveCombo}
+              savedKeys={savedKeys}
+              repeatedSections={repeatedSections}
+              dayLabel={dayLabel}
+            />
           </div>
           <CardioLog
             exercises={dayExercises}
@@ -115,6 +208,18 @@ export default function App() {
           />
         </div>
 
+        <WeeklyCheckIn
+          week={days.slice(-7)}
+          previousWeek={days.slice(-14, -7)}
+          weights={weights}
+          unit={settings.weightUnit}
+          target={settings.targetKcal}
+          proteinTarget={settings.proteinTarget}
+          water={water}
+          waterGoal={settings.waterGoal}
+          smart={smart}
+          onUseTarget={(targetKcal) => updateSettings({ targetKcal })}
+        />
       </main>
 
       <footer className="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-muted">

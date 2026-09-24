@@ -45,8 +45,10 @@ async function unzip(buffer, wanted) {
 
 const colIndex = (ref) => [...ref.replace(/\d+/g, '')].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0)
 
-/** Text cells of the first sheet, in reading order, as one line per cell. */
-export async function readSpreadsheetText(file) {
+const rowIndex = (ref) => Number(ref.replace(/[A-Z]+/gi, '')) || 0
+
+/** Every non-empty cell of the first sheet: [{ row, col, text }] in reading order. */
+export async function readSpreadsheetCells(file) {
   const files = await unzip(await file.arrayBuffer(), (name) => name === 'xl/sharedStrings.xml' || /^xl\/worksheets\/sheet\d+\.xml$/.test(name))
   const sheetName = Object.keys(files)
     .filter((n) => n.startsWith('xl/worksheets/'))
@@ -57,14 +59,20 @@ export async function readSpreadsheetText(file) {
   const textOf = (node) => [...node.getElementsByTagName('t')].map((t) => t.textContent).join('')
   const shared = files['xl/sharedStrings.xml'] ? [...parse(files['xl/sharedStrings.xml']).getElementsByTagName('si')].map(textOf) : []
 
-  const cells = [...parse(files[sheetName]).getElementsByTagName('c')].map((c) => {
-    const type = c.getAttribute('t')
-    const v = c.getElementsByTagName('v')[0]?.textContent ?? ''
-    const text = type === 's' ? shared[Number(v)] : type === 'inlineStr' ? textOf(c) : v
-    return { col: colIndex(c.getAttribute('r') || 'A'), text: (text ?? '').trim() }
-  })
+  return [...parse(files[sheetName]).getElementsByTagName('c')]
+    .map((c) => {
+      const type = c.getAttribute('t')
+      const v = c.getElementsByTagName('v')[0]?.textContent ?? ''
+      const text = type === 's' ? shared[Number(v)] : type === 'inlineStr' ? textOf(c) : v
+      const ref = c.getAttribute('r') || 'A1'
+      return { row: rowIndex(ref), col: colIndex(ref), text: (text ?? '').replace(/\s*\n\s*/g, ' ').trim() }
+    })
+    .filter((c) => c.text)
+}
 
-  const filled = cells.filter((c) => c.text)
+/** Text cells of the first sheet, in reading order, as one line per cell. */
+export async function readSpreadsheetText(file) {
+  const filled = await readSpreadsheetCells(file)
   const firstCol = Math.min(...filled.map((c) => c.col))
   const multiColumn = filled.some((c) => c.col !== firstCol)
   const lines = []
@@ -72,7 +80,7 @@ export async function readSpreadsheetText(file) {
     if (/allergic|allergen/i.test(cell.text)) break
     if (multiColumn && cell.col === firstCol) continue
     if (/^\*+$/.test(cell.text)) continue
-    lines.push(cell.text.replace(/\s*\n\s*/g, ' '))
+    lines.push(cell.text)
   }
   return lines.join('\n')
 }

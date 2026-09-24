@@ -1,4 +1,4 @@
-import { CircleAlert, Pencil } from 'lucide-react'
+import { Beef, CircleAlert, Droplet, Minus, Pencil, Plus, ShieldAlert, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { COLORS } from '../lib/theme.js'
 import { fmtInt } from '../lib/units.js'
@@ -148,7 +148,95 @@ function MacroBars({ protein, carbs, fat, target, proteinTarget, onProteinTarget
   )
 }
 
-export default function Dashboard({ consumed, burned, target, onTargetChange, proteinTarget, onProteinTargetChange, macros, dayLabel }) {
+/** Safety warnings from the guardrails, most severe first. */
+export function Guardrails({ warnings }) {
+  if (!warnings.length) return null
+  return (
+    <div className="space-y-2" role="alert">
+      {warnings.map((w) => {
+        const critical = w.level === 'critical'
+        const Icon = critical ? ShieldAlert : TriangleAlert
+        return (
+          <div key={w.id} className={`flex gap-3 rounded-2xl px-4 py-3 ring-1 ${critical ? 'bg-critical/12 ring-critical/45' : 'bg-warning/10 ring-warning/35'}`}>
+            <Icon className={`mt-0.5 size-5 shrink-0 ${critical ? 'text-critical-ink' : 'text-warning'}`} aria-hidden />
+            <div>
+              <p className="text-sm font-semibold">{w.title}</p>
+              <p className="text-xs text-ink-2">{w.body}</p>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function ProteinHelper({ remaining, ideas, onAdd }) {
+  if (remaining <= 5) {
+    return (
+      <p className="flex items-center gap-2 text-xs text-good-ink">
+        <Beef className="size-4" aria-hidden /> Protein goal hit for today. Nice.
+      </p>
+    )
+  }
+  return (
+    <div className="rounded-xl bg-page px-3 py-2.5 ring-1 ring-line">
+      <p className="mb-2 flex items-center gap-2 text-xs text-ink-2">
+        <Beef className="size-4 text-protein" aria-hidden />
+        <span>
+          <span className="font-bold text-ink">{Math.round(remaining)} g</span> protein to go. Good picks:
+        </span>
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {ideas.map(({ food, onMenu }) => (
+          <button
+            key={food.id}
+            type="button"
+            onClick={() => onAdd(food)}
+            className="inline-flex items-center gap-1 rounded-lg bg-raised px-2.5 py-1 text-xs ring-1 ring-line hover:ring-volt/50"
+            title={`${food.portion} · ${food.kcal} kcal`}
+            aria-label={`Log ${food.name}: ${food.p} grams protein, ${food.kcal} kilocalories`}
+          >
+            <Plus className="size-3 text-volt" aria-hidden />
+            <span className="font-medium">{food.name}</span>
+            <span className="text-muted">
+              {Math.round(food.p)} g · {food.kcal}
+            </span>
+            {onMenu && <span className="rounded bg-volt-soft px-1 text-[10px] font-semibold uppercase text-volt">menu</span>}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function WaterTracker({ glasses, goal, onChange }) {
+  const slots = Math.max(goal, glasses)
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-page px-3 py-2.5 ring-1 ring-line">
+      <div className="flex items-center gap-2">
+        <Droplet className="size-4 text-eat" aria-hidden />
+        <span className="text-xs text-ink-2">
+          Water <span className="font-bold text-ink">{glasses}</span> / {goal} glasses
+        </span>
+      </div>
+      <div className="flex items-center gap-1">
+        <div className="mr-1 hidden gap-0.5 sm:flex" aria-hidden>
+          {Array.from({ length: slots }, (_, i) => (
+            <span key={i} className={`h-4 w-2.5 rounded-sm ${i < glasses ? 'bg-eat' : 'bg-line'}`} />
+          ))}
+        </div>
+        <button type="button" onClick={() => onChange(Math.max(0, glasses - 1))} disabled={glasses === 0} className="grid size-8 place-items-center rounded-lg ring-1 ring-line text-ink-2 disabled:opacity-30" aria-label="Remove a glass">
+          <Minus className="size-3.5" />
+        </button>
+        <button type="button" onClick={() => onChange(glasses + 1)} className="inline-flex h-8 items-center gap-1 rounded-lg bg-eat/20 px-2.5 text-xs font-semibold text-ink ring-1 ring-eat/40" aria-label="Add a glass of water">
+          <Plus className="size-3.5" /> Glass
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export default function Dashboard({ consumed, burned, target, onTargetChange, proteinTarget, onProteinTargetChange, macros, dayLabel, proteinIdeas, onAddFood, water }) {
   const net = consumed - burned
   const remaining = target - net
   const over = remaining < 0
@@ -188,6 +276,8 @@ export default function Dashboard({ consumed, burned, target, onTargetChange, pr
           </div>
 
           <MacroBars {...macros} target={target} proteinTarget={proteinTarget} onProteinTargetChange={onProteinTargetChange} />
+          <ProteinHelper remaining={proteinTarget - macros.protein} ideas={proteinIdeas} onAdd={onAddFood} />
+          <WaterTracker {...water} />
         </div>
       </div>
     </Card>

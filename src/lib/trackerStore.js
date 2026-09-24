@@ -8,11 +8,15 @@
 // Anywhere else (npm run dev, GitHub Pages, a saved copy) there is no
 // `window.claude`, and the same API is served from localStorage instead.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { addDays } from './dates.js'
 import { makeId } from './id.js'
 import { STORAGE_KEYS, usePersistentState } from './storage.js'
 
-export const DEFAULT_SETTINGS = { targetKcal: 2000, proteinTarget: 150, weightUnit: 'lb', distanceUnit: 'mi' }
+export const DEFAULT_SETTINGS = { targetKcal: 2000, proteinTarget: 150, waterGoal: 8, weightUnit: 'lb', distanceUnit: 'mi' }
+
+/** How far back the weekly check-in and smart target look. */
+export const HISTORY_DAYS = 42
 
 const byCreated = (a, b) => a.createdAt - b.createdAt
 
@@ -73,11 +77,30 @@ async function write(fn, onError) {
   }
 }
 
-function useCloudData(backend, date) {
-  const [state, setState] = useState({ dayMeals: [], recentMeals: [], dayExercises: [], weights: [], settings: DEFAULT_SETTINGS, ready: false })
+const EMPTY = {
+  dayMeals: [],
+  dayExercises: [],
+  historyMeals: [],
+  historyExercises: [],
+  recentMeals: [],
+  weights: [],
+  water: [],
+  savedMeals: [],
+  menus: [],
+  settings: DEFAULT_SETTINGS,
+  ready: false,
+}
+
+function useCloudData(backend, date, today) {
+  const [state, setState] = useState(EMPTY)
   const [error, setError] = useState(null)
   const { db, uid } = backend
   const cloud = backend.mode === 'cloud'
+  const historyStart = addDays(today, -HISTORY_DAYS)
+  // Writes to one document must not overlap, so rapid taps (water) queue up.
+  const queues = useRef(new Map())
+  const settingsRef = useRef(DEFAULT_SETTINGS)
+  settingsRef.current = state.settings
 
   const refs = useMemo(() => {
     if (!cloud) return null
@@ -86,26 +109,42 @@ function useCloudData(backend, date) {
       meals: root.collection('meals'),
       exercises: root.collection('exercises'),
       weights: root.collection('weights'),
+      water: root.collection('water'),
+      savedMeals: root.collection('savedMeals'),
+      menus: root.collection('menus'),
       settings: db.doc(`data/users/${uid}/settings`),
     }
   }, [cloud, db, uid])
 
-  // Things that don't depend on the viewed day: weigh-ins, settings, recent foods.
+  const put = (key) => (s) => setState((st) => ({ ...st, [key]: fromSnap(s) }))
+
+  // Everything that doesn't depend on the viewed day.
   useEffect(() => {
     if (!refs) return
     const fail = (err) => setError(describeError(err))
     const unsubs = [
       refs.weights.onSnapshot((s) => setState((st) => ({ ...st, weights: fromSnap(s), ready: true })), fail),
       refs.settings.onSnapshot((s) => setState((st) => ({ ...st, settings: { ...DEFAULT_SETTINGS, ...(s.exists ? s.data() : {}) } })), fail),
-      refs.meals
-        .orderBy('createdAt', 'desc')
-        .limit(40)
-        .onSnapshot((s) => setState((st) => ({ ...st, recentMeals: fromSnap(s) })), fail),
+      refs.meals.orderBy('createdAt', 'desc').limit(60).onSnapshot(put('recentMeals'), fail),
+      refs.water.onSnapshot(put('water'), fail),
+      refs.savedMeals.onSnapshot(put('savedMeals'), fail),
+      refs.menus.onSnapshot(put('menus'), fail),
     ]
     return () => unsubs.forEach((u) => u())
   }, [refs])
 
-  // The viewed day's meals and workouts.
+  // The last six weeks, for the weekly check-in and the smart target.
+  useEffect(() => {
+    if (!refs) return
+    const fail = (err) => setError(describeError(err))
+    const unsubs = [
+      refs.meals.where('date', '>=', historyStart).onSnapshot(put('historyMeals'), fail),
+      refs.exercises.where('date', '>=', historyStart).onSnapshot(put('historyExercises'), fail),
+    ]
+    return () => unsubs.forEach((u) => u())
+  }, [refs, historyStart])
+
+  // The viewed day's meals and workouts (which may be older than the history window).
   useEffect(() => {
     if (!refs) return
     const fail = (err) => setError(describeError(err))
@@ -118,52 +157,84 @@ function useCloudData(backend, date) {
 
   const actions = useMemo(() => {
     if (!refs) return null
+    const queued = (key, fn) => {
+      const next = (queues.current.get(key) ?? Promise.resolve()).then(() => write(fn, setError))
+      queues.current.set(key, next)
+      return next
+    }
     return {
       addMeal: (meal) => write(() => refs.meals.doc(makeId()).set(toDoc(meal)), setError),
+      updateMeal: (meal) => queued(`meal:${meal.id}`, () => refs.meals.doc(meal.id).set(toDoc(meal))),
       deleteMeal: (id) => write(() => refs.meals.doc(id).delete(), setError),
       addExercise: (entry) => write(() => refs.exercises.doc(makeId()).set(toDoc(entry)), setError),
       deleteExercise: (id) => write(() => refs.exercises.doc(id).delete(), setError),
       // The date is the document id, so each day holds one weigh-in on every device.
       saveWeight: (entry) => write(() => refs.weights.doc(entry.date).set(toDoc(entry)), setError),
       deleteWeight: (id) => write(() => refs.weights.doc(id).delete(), setError),
-      updateSettings: (patch) => write(() => refs.settings.set({ ...state.settings, ...patch }), setError),
+      setWater: (day, glasses) => queued(`water:${day}`, () => refs.water.doc(day).set({ date: day, glasses })),
+      saveCombo: (combo) => write(() => refs.savedMeals.doc(combo.id ?? makeId()).set(toDoc(combo)), setError),
+      deleteCombo: (id) => write(() => refs.savedMeals.doc(id).delete(), setError),
+      saveMenus: async (weeks) => {
+        for (const week of weeks) await write(() => refs.menus.doc(week.weekStart).set(toDoc(week)), setError)
+      },
+      deleteMenu: (id) => write(() => refs.menus.doc(id).delete(), setError),
+      updateSettings: (patch) => queued('settings', () => refs.settings.set({ ...settingsRef.current, ...patch })),
     }
-  }, [refs, state.settings])
+  }, [refs])
 
   return { ...state, actions, error, clearError: () => setError(null) }
 }
 
-function useLocalData(date) {
+function useLocalData(date, today) {
   const [meals, setMeals] = usePersistentState(STORAGE_KEYS.meals, [])
   const [exercises, setExercises] = usePersistentState(STORAGE_KEYS.exercises, [])
   const [weights, setWeights] = usePersistentState(STORAGE_KEYS.weights, [])
+  const [water, setWaterList] = usePersistentState(STORAGE_KEYS.water, [])
+  const [savedMeals, setSavedMeals] = usePersistentState(STORAGE_KEYS.savedMeals, [])
+  const [menus, setMenus] = usePersistentState(STORAGE_KEYS.menus, [])
   const [settings, setSettings] = usePersistentState(STORAGE_KEYS.settings, DEFAULT_SETTINGS)
+  const historyStart = addDays(today, -HISTORY_DAYS)
 
-  const dayMeals = useMemo(() => meals.filter((m) => m.date === date).sort(byCreated), [meals, date])
-  const dayExercises = useMemo(() => exercises.filter((e) => e.date === date).sort(byCreated), [exercises, date])
-  const recentMeals = useMemo(() => [...meals].sort((a, b) => b.createdAt - a.createdAt).slice(0, 40), [meals])
+  const derived = useMemo(
+    () => ({
+      dayMeals: meals.filter((m) => m.date === date).sort(byCreated),
+      dayExercises: exercises.filter((e) => e.date === date).sort(byCreated),
+      historyMeals: meals.filter((m) => m.date >= historyStart),
+      historyExercises: exercises.filter((e) => e.date >= historyStart),
+      recentMeals: [...meals].sort((a, b) => b.createdAt - a.createdAt).slice(0, 60),
+    }),
+    [meals, exercises, date, historyStart],
+  )
+
+  const upsert = (setList, key) => (item) => setList((list) => [...list.filter((x) => x[key] !== item[key]), item])
 
   const actions = {
     addMeal: (meal) => setMeals((list) => [...list, { ...meal, id: makeId() }]),
+    updateMeal: (meal) => setMeals((list) => list.map((m) => (m.id === meal.id ? meal : m))),
     deleteMeal: (id) => setMeals((list) => list.filter((m) => m.id !== id)),
     addExercise: (entry) => setExercises((list) => [...list, { ...entry, id: makeId() }]),
     deleteExercise: (id) => setExercises((list) => list.filter((e) => e.id !== id)),
     saveWeight: (entry) => setWeights((list) => [...list.filter((w) => w.date !== entry.date), { ...entry, id: makeId() }]),
     deleteWeight: (id) => setWeights((list) => list.filter((w) => w.id !== id)),
+    setWater: (day, glasses) => upsert(setWaterList, 'date')({ id: day, date: day, glasses }),
+    saveCombo: (combo) => upsert(setSavedMeals, 'id')({ ...combo, id: combo.id ?? makeId() }),
+    deleteCombo: (id) => setSavedMeals((list) => list.filter((c) => c.id !== id)),
+    saveMenus: (weeks) => weeks.forEach((w) => upsert(setMenus, 'weekStart')({ ...w, id: w.weekStart })),
+    deleteMenu: (id) => setMenus((list) => list.filter((m) => m.id !== id)),
     updateSettings: (patch) => setSettings((s) => ({ ...s, ...patch })),
   }
 
-  return { dayMeals, recentMeals, dayExercises, weights, settings, actions, ready: true, error: null, clearError: () => {} }
+  return { ...derived, weights, water, savedMeals, menus, settings, actions, ready: true, error: null, clearError: () => {} }
 }
 
 /**
  * Everything the app shows for `date`, plus the actions that change it.
  * `mode` is 'cloud' (synced), 'local' (this browser only) or 'connecting'.
  */
-export function useTrackerData(date) {
+export function useTrackerData(date, today) {
   const backend = useBackend()
-  const cloud = useCloudData(backend, date)
-  const local = useLocalData(date)
+  const cloud = useCloudData(backend, date, today)
+  const local = useLocalData(date, today)
   const data = backend.mode === 'cloud' ? cloud : local
   const noop = () => {}
   const actions =
@@ -171,5 +242,11 @@ export function useTrackerData(date) {
       ? Object.fromEntries(Object.keys(local.actions).map((k) => [k, noop]))
       : data.actions
 
-  return { ...data, actions, mode: backend.mode, ready: backend.mode === 'local' || (backend.mode === 'cloud' && cloud.ready) }
+  return {
+    ...data,
+    settings: { ...DEFAULT_SETTINGS, ...data.settings },
+    actions,
+    mode: backend.mode,
+    ready: backend.mode === 'local' || (backend.mode === 'cloud' && cloud.ready),
+  }
 }
