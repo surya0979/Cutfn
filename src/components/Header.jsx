@@ -3,9 +3,9 @@ import { addDays, formatDay, fromDateKey } from '../lib/dates.js'
 
 const SECTIONS = [
   { id: 'today', label: 'Today' },
+  { id: 'weight', label: 'Weight' },
   { id: 'food', label: 'Food' },
   { id: 'cardio', label: 'Cardio' },
-  { id: 'weight', label: 'Weight' },
 ]
 
 const SYNC = {

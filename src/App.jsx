@@ -85,6 +85,16 @@ export default function App() {
           dayLabel={dayLabel}
         />
 
+        <WeightSection
+          weights={weights}
+          unit={settings.weightUnit}
+          onUnitChange={(weightUnit) => updateSettings({ weightUnit })}
+          onSave={saveWeight}
+          onDelete={actions.deleteWeight}
+          selectedDate={date}
+          today={today}
+        />
+
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2 lg:items-start">
           <div className="space-y-4 sm:space-y-6">
             <LogMeal onAdd={addMeal} recentFoods={recentFoods} dayLabel={dayLabel} />
@@ -102,15 +112,6 @@ export default function App() {
           />
         </div>
 
-        <WeightSection
-          weights={weights}
-          unit={settings.weightUnit}
-          onUnitChange={(weightUnit) => updateSettings({ weightUnit })}
-          onSave={saveWeight}
-          onDelete={actions.deleteWeight}
-          selectedDate={date}
-          today={today}
-        />
       </main>
 
       <footer className="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-muted">

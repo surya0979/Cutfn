@@ -1,12 +1,11 @@
 import { ChevronDown, Minus, Scale, Trash2, TrendingDown, TrendingUp } from 'lucide-react'
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { addDays, daysBetween, formatShortDate } from '../lib/dates.js'
 import { fmt1, fromKg, round, toKg } from '../lib/units.js'
 import { weeklyRateKg, withMovingAverage } from '../lib/weight.js'
-import { Button, Card, CardHeader, EmptyState, Field, IconButton, inputClass, Segmented } from './ui.jsx'
+import { Button, Card, CardHeader, Field, IconButton, inputClass, Segmented } from './ui.jsx'
 
-// Recharts is the heaviest dependency; load it after the first paint.
-const WeightChart = lazy(() => import('./WeightChart.jsx'))
+import WeightChart from './WeightChart.jsx'
 
 const RANGES = [
   { value: '30', label: '30D' },
@@ -160,14 +159,18 @@ export default function WeightSection({ weights, unit, onUnitChange, onSave, onD
 
       <div className="mt-5">
         {visible.length === 0 ? (
-          <EmptyState icon={Scale}>
-            {all.length === 0 ? 'Log your first weigh-in to start the chart.' : 'No weigh-ins in this range. Try “All”.'}
-          </EmptyState>
+          <div className="flex h-64 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-page px-6 text-center sm:h-72">
+            <Scale className="size-6 text-muted" aria-hidden />
+            <p className="text-sm font-semibold">Your weight graph shows up here</p>
+            <p className="max-w-xs text-xs text-muted">
+              {all.length === 0
+                ? 'Enter today’s weight above and tap Log weight. Each day you log adds a point to the line.'
+                : 'No weigh-ins in this range. Switch to “All”.'}
+            </p>
+          </div>
         ) : (
           <>
-            <Suspense fallback={<div className="h-[17.75rem] sm:h-[19.75rem]" aria-hidden />}>
-              <WeightChart points={visible} unit={unit} />
-            </Suspense>
+            <WeightChart points={visible} unit={unit} />
             {all.length === 1 && <p className="mt-2 text-center text-xs text-muted">Log a few more days to see your trend line take shape.</p>}
           </>
         )}
