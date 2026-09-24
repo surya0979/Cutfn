@@ -1,6 +1,17 @@
 # Cutfn
 
-A fast, mobile-first tracker for a fitness cut: calories in, calories burned, and the weight trend. It runs entirely in the browser. There's no backend and no account; everything is saved to `localStorage`.
+A fast, mobile-first tracker for a fitness cut: calories in, calories burned, and the weight trend.
+
+**Live app (synced):** https://claude.ai/artifact/LUgvhxH6m9a2TZQaLDmFir. Open it on your phone and laptop while signed into claude.ai and every entry syncs between them within seconds.
+
+## Sync and storage
+
+The same code runs in two modes, chosen automatically (`src/lib/trackerStore.js`):
+
+- **On claude.ai (synced):** data lives in the page's cloud database under your own private `data/users/<you>/` space. Nobody else who opens the link can see it; they get their own empty log. Every open device subscribes live, so a meal logged on your phone appears on your laptop. The header shows a green **Synced** badge.
+- **Anywhere else** (`npm run dev`, GitHub Pages, a saved copy): data is saved in that browser's `localStorage` only, and the badge reads **This device**.
+
+To republish the claude.ai page after changes: `npm run build:artifact`, then publish `dist/artifact.html` with the files in `dist/` (assets, `ocr-worker.js`, `tessdata/`).
 
 Built with React 19, Vite, Tailwind CSS v4, Recharts and Tesseract.js.
 
@@ -57,8 +68,8 @@ To try it on your phone, run `npm run dev -- --host` and open the "Network" URL 
 
 ## Notes
 
-- **Data** lives only in this browser's `localStorage` (keys `cutfn.v1.*`). Clearing site data erases it, and it doesn't sync across devices.
-- **OCR** downloads the Tesseract engine and English model (~10 MB) from the jsDelivr CDN the first time you scan. After that the browser caches them. If a network blocks the CDN, typing or pasting the menu still works.
+- **Cloud storage limit:** the claude.ai database holds up to 5,000 entries (meals + workouts + weigh-ins), roughly 1.5–2 years of daily logging. If it fills up, the app says so and you can delete old entries.
+- **OCR:** the English model (3 MB) and Tesseract's worker script ship with the app. Only the OCR engine core loads from the jsDelivr CDN on your first scan, and the browser caches it. If on-device OCR can't run on claude.ai, the app asks Claude to read the photo instead (you'll see a one-time permission prompt). Typing or pasting the menu always works.
 - **Estimates:** nutrition values are typical portions based on USDA data. Burn figures use gross METs, which is the standard formula and includes your resting burn during the activity. Treat both as guides, not lab measurements.
 
 ## Project layout
@@ -76,4 +87,7 @@ src/
     weight.js             latest-weight lookup, moving average, weekly rate
     chartScale.js         nice axis ticks for the weight chart
     storage.js            localStorage-backed state hook
+    trackerStore.js       cloud sync (claude.ai db) with localStorage fallback
+public/ocr-worker.js      Tesseract worker entry that serves the bundled model
+scripts/build-artifact.mjs  turns the Vite build into the claude.ai page
 ```

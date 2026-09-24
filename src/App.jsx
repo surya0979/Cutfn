@@ -7,40 +7,27 @@ import MealList from './components/MealList.jsx'
 import WeightSection from './components/WeightSection.jsx'
 import { formatDay } from './lib/dates.js'
 import { exerciseBurn } from './lib/exercise.js'
-import { makeId } from './lib/id.js'
-import { STORAGE_KEYS, usePersistentState } from './lib/storage.js'
+import { useTrackerData } from './lib/trackerStore.js'
 import { useToday } from './lib/useToday.js'
 import { resolveBodyWeight } from './lib/weight.js'
 
-const DEFAULT_SETTINGS = { targetKcal: 2000, weightUnit: 'lb', distanceUnit: 'mi' }
-
-const byCreated = (a, b) => a.createdAt - b.createdAt
-
 export default function App() {
-  const [meals, setMeals] = usePersistentState(STORAGE_KEYS.meals, [])
-  const [exercises, setExercises] = usePersistentState(STORAGE_KEYS.exercises, [])
-  const [weights, setWeights] = usePersistentState(STORAGE_KEYS.weights, [])
-  const [settings, setSettings] = usePersistentState(STORAGE_KEYS.settings, DEFAULT_SETTINGS)
-  const updateSettings = (patch) => setSettings((s) => ({ ...s, ...patch }))
-
   const today = useToday()
   const [viewDate, setViewDate] = useState(null)
   // Viewing "today" follows the calendar, so the app rolls over at midnight.
   const date = viewDate && viewDate < today ? viewDate : today
   const dayLabel = formatDay(date, today)
 
-  const dayMeals = useMemo(() => meals.filter((m) => m.date === date).sort(byCreated), [meals, date])
+  const { dayMeals, recentMeals, dayExercises: rawExercises, weights, settings, actions, mode, ready, error, clearError } = useTrackerData(date)
+  const updateSettings = actions.updateSettings
 
   // Burns are recomputed from stored inputs against the latest weigh-in as of
   // that day, so logging a new weight immediately updates the day's totals.
   const bodyWeight = useMemo(() => resolveBodyWeight(weights, date), [weights, date])
   const dayExercises = useMemo(
     () =>
-      exercises
-        .filter((e) => e.date === date)
-        .sort(byCreated)
-        .map((e) => ({ ...e, burn: exerciseBurn(e, bodyWeight.kg) })),
-    [exercises, date, bodyWeight.kg],
+      rawExercises.map((e) => ({ ...e, burn: exerciseBurn(e, bodyWeight.kg) })),
+    [rawExercises, bodyWeight.kg],
   )
 
   const totals = useMemo(() => {
@@ -59,7 +46,7 @@ export default function App() {
   const recentFoods = useMemo(() => {
     const seen = new Set()
     const out = []
-    for (const m of [...meals].sort((a, b) => b.createdAt - a.createdAt)) {
+    for (const m of recentMeals) {
       const key = m.name.toLowerCase()
       if (seen.has(key)) continue
       seen.add(key)
@@ -67,22 +54,28 @@ export default function App() {
       if (out.length === 8) break
     }
     return out
-  }, [meals])
+  }, [recentMeals])
 
-  const addMeal = (meal) => setMeals((list) => [...list, { ...meal, id: makeId(), date, createdAt: Date.now() }])
-  const deleteMeal = (id) => setMeals((list) => list.filter((m) => m.id !== id))
-  const addExercise = (entry) => setExercises((list) => [...list, { ...entry, id: makeId(), date, createdAt: Date.now() }])
-  const deleteExercise = (id) => setExercises((list) => list.filter((e) => e.id !== id))
+  const stamp = (entry) => ({ ...entry, date, createdAt: Date.now() })
+  const addMeal = (meal) => actions.addMeal(stamp(meal))
+  const addExercise = (entry) => actions.addExercise(stamp(entry))
   // One weigh-in per day: saving again for the same date replaces it.
-  const saveWeight = ({ date: day, kg }) =>
-    setWeights((list) => [...list.filter((w) => w.date !== day), { id: makeId(), date: day, kg, createdAt: Date.now() }])
-  const deleteWeight = (id) => setWeights((list) => list.filter((w) => w.id !== id))
+  const saveWeight = ({ date: day, kg }) => actions.saveWeight({ date: day, kg, createdAt: Date.now() })
 
   return (
     <div className="min-h-dvh pb-[env(safe-area-inset-bottom)]">
-      <Header date={date} today={today} onDateChange={(d) => setViewDate(d >= today ? null : d)} />
+      <Header date={date} today={today} syncMode={mode} onDateChange={(d) => setViewDate(d >= today ? null : d)} />
 
-      <main className="mx-auto max-w-6xl space-y-4 px-4 py-4 sm:space-y-6 sm:py-6">
+      {error && (
+        <div role="alert" className="mx-auto mt-3 flex max-w-6xl items-center justify-between gap-3 px-4">
+          <p className="flex-1 rounded-xl bg-critical/15 px-3 py-2 text-sm text-critical-ink ring-1 ring-critical/40">{error}</p>
+          <button type="button" onClick={clearError} className="text-xs font-semibold text-muted hover:text-ink">
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      <main aria-busy={!ready} className={`transition-opacity ${ready ? '' : 'opacity-60'} mx-auto max-w-6xl space-y-4 px-4 py-4 sm:space-y-6 sm:py-6`}>
         <Dashboard
           consumed={totals.consumed}
           burned={totals.burned}
@@ -95,7 +88,7 @@ export default function App() {
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2 lg:items-start">
           <div className="space-y-4 sm:space-y-6">
             <LogMeal onAdd={addMeal} recentFoods={recentFoods} dayLabel={dayLabel} />
-            <MealList meals={dayMeals} onDelete={deleteMeal} dayLabel={dayLabel} />
+            <MealList meals={dayMeals} onDelete={actions.deleteMeal} dayLabel={dayLabel} />
           </div>
           <CardioLog
             exercises={dayExercises}
@@ -104,7 +97,7 @@ export default function App() {
             distanceUnit={settings.distanceUnit}
             onDistanceUnitChange={(distanceUnit) => updateSettings({ distanceUnit })}
             onAdd={addExercise}
-            onDelete={deleteExercise}
+            onDelete={actions.deleteExercise}
             dayLabel={dayLabel}
           />
         </div>
@@ -114,14 +107,17 @@ export default function App() {
           unit={settings.weightUnit}
           onUnitChange={(weightUnit) => updateSettings({ weightUnit })}
           onSave={saveWeight}
-          onDelete={deleteWeight}
+          onDelete={actions.deleteWeight}
           selectedDate={date}
           today={today}
         />
       </main>
 
       <footer className="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-muted">
-        Everything is saved in this browser only (localStorage). Nutrition and burn figures are estimates.
+        {mode === 'cloud'
+          ? 'Synced to your claude.ai account. Open this page on any device to see the same log.'
+          : 'Saved in this browser only. Open Cutfn on claude.ai to sync between devices.'}{' '}
+        Nutrition and burn figures are estimates.
       </footer>
     </div>
   )

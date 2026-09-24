@@ -1,7 +1,7 @@
 import { Camera, Check, ImageUp, LoaderCircle, Minus, Plus, ScanLine, Sparkles, X } from 'lucide-react'
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { parseMenu, SAMPLE_MENU } from '../lib/menuParser.js'
-import { recognizeMenuImage } from '../lib/ocr.js'
+import { canAskClaude, readMenuWithClaude, recognizeMenuImage } from '../lib/ocr.js'
 import { COLORS } from '../lib/theme.js'
 import { fmtInt } from '../lib/units.js'
 import { Button, inputClass, Swatch } from './ui.jsx'
@@ -127,8 +127,16 @@ export default function MenuScanner({ onAdd, onManual }) {
     }
     setPreview(URL.createObjectURL(file))
     setScan({ status: 'working', label: 'Loading OCR engine…', progress: null })
+    const onProgress = (p) => setScan({ status: 'working', ...p })
     try {
-      const result = await recognizeMenuImage(file, (p) => setScan({ status: 'working', ...p }))
+      let result
+      try {
+        result = await recognizeMenuImage(file, onProgress)
+      } catch (ocrError) {
+        // On-device OCR is unavailable here; fall back to Claude when the page can ask it.
+        if (!(await canAskClaude())) throw ocrError
+        result = await readMenuWithClaude(file, onProgress)
+      }
       const cleaned = result.replace(/\n{3,}/g, '\n\n').trim()
       setText(cleaned)
       const found = parseMenu(cleaned).items.length
@@ -139,7 +147,8 @@ export default function MenuScanner({ onAdd, onManual }) {
           : 'No known dishes found. Edit the text below or type the dishes in.',
       })
     } catch (err) {
-      setScan({ status: 'error', message: err.message })
+      const message = err?.code === 'not_granted' ? 'Photo reading was declined. Type or paste the menu below instead.' : err?.message || 'Couldn’t read that photo. Type or paste the menu below.'
+      setScan({ status: 'error', message })
     }
   }
 
