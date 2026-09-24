@@ -2,7 +2,7 @@ import { useId } from 'react'
 
 export function Card({ as: Tag = 'section', className = '', children, ...props }) {
   return (
-    <Tag className={`rounded-2xl border border-line bg-surface p-4 sm:p-5 ${className}`} {...props}>
+    <Tag className={`rounded-2xl border border-line bg-surface p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-5 ${className}`} {...props}>
       {children}
     </Tag>
   )
@@ -18,7 +18,7 @@ export function CardHeader({ icon: Icon, title, subtitle, action }) {
           </span>
         )}
         <div className="min-w-0">
-          <h2 className="text-[15px] font-semibold tracking-tight">{title}</h2>
+          <h2 className="font-display text-lg font-bold uppercase leading-tight tracking-wide sm:text-xl">{title}</h2>
           {subtitle && <p className="line-clamp-2 text-xs text-muted">{subtitle}</p>}
         </div>
       </div>

@@ -5,7 +5,7 @@ import { SECTIONS } from '../lib/sections.js'
 import { fmtInt } from '../lib/units.js'
 import ManualEntry from './ManualEntry.jsx'
 import MenuScanner from './MenuScanner.jsx'
-import { Card, CardHeader, inputClass, TabPanel, Tabs } from './ui.jsx'
+import { Card, CardHeader, TabPanel, Tabs } from './ui.jsx'
 
 /** Saved combos ("My usual lunch") that log several foods in one tap. */
 function Usuals({ usuals, onLog, onDelete }) {
@@ -80,23 +80,17 @@ export default function LogMeal({ onAdd, recentFoods, dayLabel, section, onSecti
 
   return (
     <Card id="food">
-      <CardHeader
-        icon={UtensilsCrossed}
-        title="Log a meal"
-        subtitle={`Adding to ${dayInline(dayLabel)}`}
-        action={
-          <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted">
-            <span className="sr-only sm:not-sr-only">Meal</span>
-            <select value={section} onChange={(e) => onSectionChange(e.target.value)} className={`${inputClass} w-auto py-1.5 pr-7 text-sm`} aria-label="Meal">
-              {SECTIONS.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        }
-      />
+      <CardHeader icon={UtensilsCrossed} title="Log a meal" subtitle={`Adding to ${dayInline(dayLabel)}`} />
+      <label className="mb-4 flex items-center justify-between gap-3 rounded-xl bg-page px-3 py-2 ring-1 ring-line">
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted">Meal</span>
+        <select value={section} onChange={(e) => onSectionChange(e.target.value)} className="bg-transparent text-right text-sm font-semibold text-ink focus:outline-none" aria-label="Meal">
+          {SECTIONS.map((s) => (
+            <option key={s.id} value={s.id} className="bg-surface">
+              {s.label}
+            </option>
+          ))}
+        </select>
+      </label>
       <Usuals usuals={usuals} onLog={onLogUsual} onDelete={onDeleteUsual} />
       <Tabs
         label="How to log"

@@ -12,7 +12,7 @@ function Term({ label, value, color, sign }) {
         {color && <Swatch color={color} />}
         {label}
       </span>
-      <span className="text-xl font-bold tracking-tight sm:text-2xl">
+      <span className="font-display text-3xl font-bold leading-none tracking-tight">
         {sign}
         {fmtInt(value)}
       </span>
@@ -73,7 +73,7 @@ function TargetEditor({ target, onChange, min = 800, max = 8000, step = 50, unit
       className="group inline-flex items-center gap-2 rounded-lg px-2 py-1 -mx-2 text-left hover:bg-raised"
       aria-label={`${label} ${target} ${unit}. Edit`}
     >
-      <span className={size === 'lg' ? 'text-xl font-bold tracking-tight' : 'text-xs font-semibold text-ink-2'}>{fmtInt(target)}</span>
+      <span className={size === 'lg' ? 'font-display text-3xl font-bold leading-none tracking-tight' : 'text-xs font-semibold text-ink-2'}>{fmtInt(target)}</span>
       <span className={size === 'lg' ? 'text-sm text-muted' : 'text-xs text-muted'}>{unit}</span>
       <Pencil className="size-3.5 text-muted group-hover:text-volt" aria-hidden />
     </button>
@@ -98,7 +98,7 @@ function MacroRow({ label, grams, goal, color, editor }) {
           {label}
         </span>
         <span className="flex items-baseline gap-1 text-xs tabular-nums">
-          <span className="text-sm font-bold text-ink">{Math.round(grams)}</span>
+          <span className="font-display text-lg font-bold leading-none text-ink">{Math.round(grams)}</span>
           <span className="text-muted">/</span>
           {editor ?? <span className="text-muted">{Math.round(goal)} g</span>}
         </span>
@@ -187,7 +187,7 @@ function ProteinHelper({ remaining, ideas, onAdd }) {
         </span>
       </p>
       <div className="flex flex-wrap gap-1.5">
-        {ideas.map(({ food, onMenu }) => (
+        {ideas.slice(0, 4).map(({ food, onMenu }) => (
           <button
             key={food.id}
             type="button"
@@ -198,9 +198,7 @@ function ProteinHelper({ remaining, ideas, onAdd }) {
           >
             <Plus className="size-3 text-volt" aria-hidden />
             <span className="font-medium">{food.name}</span>
-            <span className="text-muted">
-              {Math.round(food.p)} g · {food.kcal}
-            </span>
+            <span className="text-muted">{Math.round(food.p)} g</span>
             {onMenu && <span className="rounded bg-volt-soft px-1 text-[10px] font-semibold uppercase text-volt">menu</span>}
           </button>
         ))}
@@ -269,7 +267,7 @@ export default function Dashboard({ consumed, burned, target, onTargetChange, pr
                 {over ? 'Over target' : 'Remaining'}
               </div>
               <div className="py-1">
-                <span className={`text-xl font-bold tracking-tight ${over ? 'text-critical-ink' : 'text-volt'}`}>{fmtInt(Math.abs(remaining))}</span>
+                <span className={`font-display text-3xl font-bold leading-none tracking-tight ${over ? 'text-critical-ink' : 'text-volt'}`}>{fmtInt(Math.abs(remaining))}</span>
                 <span className="ml-2 text-sm text-muted">kcal</span>
               </div>
             </div>

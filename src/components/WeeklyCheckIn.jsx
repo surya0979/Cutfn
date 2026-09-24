@@ -13,7 +13,7 @@ function Stat({ label, value, sub }) {
   return (
     <div className="rounded-xl bg-page px-3 py-2.5 ring-1 ring-line">
       <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">{label}</div>
-      <div className="mt-0.5 text-lg font-bold tracking-tight">{value}</div>
+      <div className="mt-1 font-display text-2xl font-bold leading-none tracking-tight">{value}</div>
       {sub && <div className="text-xs text-muted">{sub}</div>}
     </div>
   )
@@ -118,7 +118,7 @@ function SmartTarget({ smart, target, unit, onUse }) {
       </p>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm">
-          Suggested: <span className="text-lg font-bold text-volt">{fmtInt(smart.suggested)}</span> kcal
+          Suggested: <span className="font-display text-3xl font-bold text-volt">{fmtInt(smart.suggested)}</span> kcal
           <span className="text-xs text-muted"> ≈ {fmt1(rate)} {unit}/week loss</span>
         </p>
         {same ? (

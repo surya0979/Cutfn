@@ -88,7 +88,7 @@ function ResultRow({ item, onAdd, source = 'menu' }) {
           )}
         </div>
         <div className="shrink-0 text-right">
-          <span className="text-lg font-bold">{fmtInt(scaled.kcal)}</span>
+          <span className="font-display text-2xl font-bold leading-none">{fmtInt(scaled.kcal)}</span>
           <span className="ml-1 text-xs text-muted">kcal</span>
         </div>
       </div>

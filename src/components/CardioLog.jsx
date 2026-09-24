@@ -50,7 +50,7 @@ function BurnPreview({ result, details, formula, emptyText, warning }) {
           <Swatch color={COLORS.burn} /> Estimated burn
         </span>
         <span>
-          <span className="text-2xl font-bold tracking-tight">{fmtInt(result.kcal)}</span>
+          <span className="font-display text-4xl font-bold leading-none tracking-tight">{fmtInt(result.kcal)}</span>
           <span className="ml-1 text-sm text-muted">kcal</span>
         </span>
       </div>
@@ -359,7 +359,7 @@ export default function CardioLog({ exercises, bodyWeight, weightUnit, distanceU
           {exercises.length > 0 && (
             <span className="flex items-center gap-1.5">
               <Swatch color={COLORS.burn} />
-              <span className="text-lg font-bold">{fmtInt(total)}</span>
+              <span className="font-display text-2xl font-bold leading-none">{fmtInt(total)}</span>
               <span className="text-xs text-muted">kcal burned</span>
             </span>
           )}

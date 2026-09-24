@@ -15,12 +15,12 @@ const RANGES = [
 
 /** On a cut, down is good: green with a down arrow; up gets red with an up arrow. */
 function Delta({ value, unit, suffix = '' }) {
-  if (value == null) return <span className="text-xl font-bold text-muted">–</span>
+  if (value == null) return <span className="font-display text-3xl font-bold leading-none text-muted">–</span>
   const shown = round(value, 1)
   const Icon = shown < 0 ? TrendingDown : shown > 0 ? TrendingUp : Minus
   const tone = shown < 0 ? 'text-good-ink' : shown > 0 ? 'text-critical-ink' : 'text-ink-2'
   return (
-    <span className={`inline-flex items-center gap-1 text-xl font-bold tracking-tight ${tone}`}>
+    <span className={`inline-flex items-center gap-1 font-display text-3xl font-bold leading-none tracking-tight ${tone}`}>
       <Icon className="size-4" aria-hidden />
       {shown > 0 ? '+' : ''}
       {fmt1(shown)}
@@ -141,11 +141,11 @@ export default function WeightSection({ weights, unit, onUnitChange, onSave, onD
       {all.length > 0 && (
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Stat label="Start">
-            <span className="text-xl font-bold tracking-tight">{fmt1(fromKg(first.kg, unit))}</span>
+            <span className="font-display text-3xl font-bold leading-none tracking-tight">{fmt1(fromKg(first.kg, unit))}</span>
             <span className="ml-1 text-sm text-muted">{unit}</span>
           </Stat>
           <Stat label="Current">
-            <span className="text-xl font-bold tracking-tight">{fmt1(fromKg(latest.kg, unit))}</span>
+            <span className="font-display text-3xl font-bold leading-none tracking-tight">{fmt1(fromKg(latest.kg, unit))}</span>
             <span className="ml-1 text-sm text-muted">{unit}</span>
           </Stat>
           <Stat label="Total change">

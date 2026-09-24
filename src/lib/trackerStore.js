@@ -163,10 +163,10 @@ function useCloudData(backend, date, today) {
       return next
     }
     return {
-      addMeal: (meal) => write(() => refs.meals.doc(makeId()).set(toDoc(meal)), setError),
+      addMeal: (meal) => write(() => refs.meals.doc(meal.id ?? makeId()).set(toDoc(meal)), setError),
       updateMeal: (meal) => queued(`meal:${meal.id}`, () => refs.meals.doc(meal.id).set(toDoc(meal))),
       deleteMeal: (id) => write(() => refs.meals.doc(id).delete(), setError),
-      addExercise: (entry) => write(() => refs.exercises.doc(makeId()).set(toDoc(entry)), setError),
+      addExercise: (entry) => write(() => refs.exercises.doc(entry.id ?? makeId()).set(toDoc(entry)), setError),
       deleteExercise: (id) => write(() => refs.exercises.doc(id).delete(), setError),
       // The date is the document id, so each day holds one weigh-in on every device.
       saveWeight: (entry) => write(() => refs.weights.doc(entry.date).set(toDoc(entry)), setError),
@@ -209,10 +209,10 @@ function useLocalData(date, today) {
   const upsert = (setList, key) => (item) => setList((list) => [...list.filter((x) => x[key] !== item[key]), item])
 
   const actions = {
-    addMeal: (meal) => setMeals((list) => [...list, { ...meal, id: makeId() }]),
+    addMeal: (meal) => setMeals((list) => [...list, { ...meal, id: meal.id ?? makeId() }]),
     updateMeal: (meal) => setMeals((list) => list.map((m) => (m.id === meal.id ? meal : m))),
     deleteMeal: (id) => setMeals((list) => list.filter((m) => m.id !== id)),
-    addExercise: (entry) => setExercises((list) => [...list, { ...entry, id: makeId() }]),
+    addExercise: (entry) => setExercises((list) => [...list, { ...entry, id: entry.id ?? makeId() }]),
     deleteExercise: (id) => setExercises((list) => list.filter((e) => e.id !== id)),
     saveWeight: (entry) => setWeights((list) => [...list.filter((w) => w.date !== entry.date), { ...entry, id: makeId() }]),
     deleteWeight: (id) => setWeights((list) => list.filter((w) => w.id !== id)),

@@ -152,7 +152,7 @@ export default function MealList({ meals, onDelete, onUpdate, onSaveUsual, repea
           meals.length > 0 && (
             <div className="flex items-center gap-1.5 text-right">
               <Swatch color={COLORS.eat} />
-              <span className="text-lg font-bold">{fmtInt(total)}</span>
+              <span className="font-display text-2xl font-bold leading-none">{fmtInt(total)}</span>
               <span className="text-xs text-muted">kcal</span>
             </div>
           )
