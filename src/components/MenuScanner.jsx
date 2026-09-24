@@ -1,12 +1,16 @@
-import { Camera, Check, ImageUp, LoaderCircle, Minus, Plus, ScanLine, Sparkles, X } from 'lucide-react'
+import { Camera, Check, FileUp, LoaderCircle, Minus, Plus, ScanLine, Search, Sparkles, X } from 'lucide-react'
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { parseMenu, SAMPLE_MENU } from '../lib/menuParser.js'
 import { canAskClaude, readMenuWithClaude, recognizeMenuImage } from '../lib/ocr.js'
+import { readSpreadsheetText } from '../lib/xlsx.js'
 import { COLORS } from '../lib/theme.js'
 import { fmtInt } from '../lib/units.js'
 import { Button, inputClass, Swatch } from './ui.jsx'
 
 const SERVING_STEPS = [0.5, 1, 1.5, 2, 2.5, 3]
+const FIRST_PAGE = 12
+const isSpreadsheet = (f) => /\.xlsx$/i.test(f.name) || f.type.includes('spreadsheetml')
+const isTextFile = (f) => /\.(csv|txt|tsv)$/i.test(f.name) || f.type.startsWith('text/')
 
 function MacroLine({ p, c, f }) {
   return (
@@ -110,19 +114,47 @@ export default function MenuScanner({ onAdd, onManual }) {
   const [scan, setScan] = useState({ status: 'idle' })
   const [preview, setPreview] = useState(null)
   const [dragging, setDragging] = useState(false)
+  const [filter, setFilter] = useState('')
+  const [showAll, setShowAll] = useState(false)
   const cameraInput = useRef(null)
   const fileInput = useRef(null)
 
   const deferredText = useDeferredValue(text)
   const { items, unmatched } = useMemo(() => parseMenu(deferredText), [deferredText])
   const working = scan.status === 'working'
+  const query = filter.trim().toLowerCase()
+  const filtered = query ? items.filter((i) => `${i.food.name} ${i.matchedText}`.toLowerCase().includes(query)) : items
+  const shown = query || showAll ? filtered : filtered.slice(0, FIRST_PAGE)
+
+  const showText = (value, source) => {
+    const cleaned = value.replace(/\n{3,}/g, '\n\n').trim()
+    setText(cleaned)
+    setFilter('')
+    setShowAll(false)
+    const found = parseMenu(cleaned).items.length
+    setScan({
+      status: 'done',
+      message: found
+        ? `Found ${found} dish${found === 1 ? '' : 'es'}${source ? ` in ${source}` : ''}. Edit the text below and the estimates update.`
+        : 'No known dishes found. Edit the text below or type the dishes in.',
+    })
+  }
 
   useEffect(() => () => preview && URL.revokeObjectURL(preview), [preview])
 
   async function handleFile(file) {
     if (!file) return
+    if (isSpreadsheet(file) || isTextFile(file)) {
+      setPreview(null)
+      try {
+        showText(isSpreadsheet(file) ? await readSpreadsheetText(file) : await file.text(), file.name)
+      } catch {
+        setScan({ status: 'error', message: 'Couldn’t read that file. Save it as .xlsx or .csv, or paste the menu below.' })
+      }
+      return
+    }
     if (!file.type.startsWith('image/')) {
-      setScan({ status: 'error', message: 'That file isn’t an image. Try a photo or screenshot of the menu.' })
+      setScan({ status: 'error', message: 'Use a photo, a screenshot, or an .xlsx / .csv menu file.' })
       return
     }
     setPreview(URL.createObjectURL(file))
@@ -137,15 +169,7 @@ export default function MenuScanner({ onAdd, onManual }) {
         if (!(await canAskClaude())) throw ocrError
         result = await readMenuWithClaude(file, onProgress)
       }
-      const cleaned = result.replace(/\n{3,}/g, '\n\n').trim()
-      setText(cleaned)
-      const found = parseMenu(cleaned).items.length
-      setScan({
-        status: 'done',
-        message: found
-          ? `Found ${found} dish${found === 1 ? '' : 'es'}. Fix any misread text below and the estimates update.`
-          : 'No known dishes found. Edit the text below or type the dishes in.',
-      })
+      showText(result)
     } catch (err) {
       const message = err?.code === 'not_granted' ? 'Photo reading was declined. Type or paste the menu below instead.' : err?.message || 'Couldn’t read that photo. Type or paste the menu below.'
       setScan({ status: 'error', message })
@@ -200,15 +224,15 @@ export default function MenuScanner({ onAdd, onManual }) {
             <>
               {!preview && <ScanLine className="size-7 text-volt" aria-hidden />}
               <div>
-                <p className="text-sm font-semibold">{preview ? 'Scan another photo' : 'Drop, paste or snap a photo of the school menu'}</p>
-                <p className="text-xs text-muted">Text is read on your device. Nothing is uploaded.</p>
+                <p className="text-sm font-semibold">{preview ? 'Scan another menu' : 'Drop in your school menu'}</p>
+                <p className="text-xs text-muted">A photo, a screenshot, or the weekly .xlsx file. Read on your device.</p>
               </div>
               <div className="flex flex-wrap justify-center gap-2">
                 <Button variant="secondary" onClick={() => cameraInput.current?.click()}>
                   <Camera className="size-4" aria-hidden /> Take photo
                 </Button>
                 <Button variant="secondary" onClick={() => fileInput.current?.click()}>
-                  <ImageUp className="size-4" aria-hidden /> Upload image
+                  <FileUp className="size-4" aria-hidden /> Upload file
                 </Button>
               </div>
             </>
@@ -228,7 +252,7 @@ export default function MenuScanner({ onAdd, onManual }) {
         <input
           ref={fileInput}
           type="file"
-          accept="image/*"
+          accept="image/*,.xlsx,.csv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
           className="hidden"
           onChange={(e) => {
             handleFile(e.target.files?.[0])
@@ -270,8 +294,8 @@ export default function MenuScanner({ onAdd, onManual }) {
           id="menu-text"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          rows={text ? 5 : 3}
-          placeholder={'e.g. Chicken nuggets, tater tots, chocolate milk'}
+          rows={text ? 8 : 5}
+          placeholder={'Paste the menu here, one dish per line or separated by commas.\ne.g. Chole masala, chapati, jeera rice, curd'}
           className={`${inputClass} resize-y font-mono text-[13px] leading-relaxed`}
           disabled={working}
         />
@@ -279,14 +303,35 @@ export default function MenuScanner({ onAdd, onManual }) {
 
       {items.length > 0 && (
         <div>
-          <p className="mb-2 text-xs text-muted">
-            {items.length} dish{items.length === 1 ? '' : 'es'} · estimates for a typical school portion
-          </p>
-          <ul className="space-y-2">
-            {items.map((item) => (
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted">
+              {items.length} dish{items.length === 1 ? '' : 'es'} found · estimates for a typical canteen portion
+            </p>
+            {items.length > 6 && (
+              <label className="relative block w-full sm:w-52">
+                <span className="sr-only">Filter dishes</span>
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted" aria-hidden />
+                <input
+                  type="search"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  placeholder="Find a dish"
+                  className={`${inputClass} py-1.5 pl-8 text-sm`}
+                />
+              </label>
+            )}
+          </div>
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1 2xl:grid-cols-2">
+            {shown.map((item) => (
               <ResultRow key={item.food.id} item={item} onAdd={onAdd} />
             ))}
           </ul>
+          {query && filtered.length === 0 && <p className="mt-2 text-sm text-muted">No dish matches “{filter}”.</p>}
+          {!query && !showAll && filtered.length > FIRST_PAGE && (
+            <Button variant="secondary" className="mt-2 w-full" onClick={() => setShowAll(true)}>
+              Show all {filtered.length} dishes
+            </Button>
+          )}
         </div>
       )}
 

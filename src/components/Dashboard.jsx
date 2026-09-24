@@ -28,13 +28,13 @@ function Operator({ children }) {
   )
 }
 
-function TargetEditor({ target, onChange }) {
+function TargetEditor({ target, onChange, min = 800, max = 8000, step = 50, unit = 'kcal', label = 'Daily calorie target', size = 'lg' }) {
   const [draft, setDraft] = useState(null)
   const editing = draft !== null
 
   const commit = () => {
     const n = Math.round(Number(draft))
-    if (n >= 800 && n <= 8000) onChange(n)
+    if (n >= min && n <= max) onChange(n)
     setDraft(null)
   }
 
@@ -51,17 +51,17 @@ function TargetEditor({ target, onChange }) {
           autoFocus
           type="number"
           inputMode="numeric"
-          min={800}
-          max={8000}
-          step={50}
+          min={min}
+          max={max}
+          step={step}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => e.key === 'Escape' && setDraft(null)}
-          aria-label="Daily calorie target"
-          className={`${inputClass} w-28 py-1.5`}
+          aria-label={label}
+          className={`${inputClass} ${size === 'lg' ? 'w-28 py-1.5' : 'w-20 py-1 text-sm'}`}
         />
-        <span className="text-sm text-muted">kcal</span>
+        <span className="text-sm text-muted">{unit}</span>
       </form>
     )
   }
@@ -71,56 +71,84 @@ function TargetEditor({ target, onChange }) {
       type="button"
       onClick={() => setDraft(String(target))}
       className="group inline-flex items-center gap-2 rounded-lg px-2 py-1 -mx-2 text-left hover:bg-raised"
-      aria-label={`Daily target ${target} kilocalories. Edit`}
+      aria-label={`${label} ${target} ${unit}. Edit`}
     >
-      <span className="text-xl font-bold tracking-tight">{fmtInt(target)}</span>
-      <span className="text-sm text-muted">kcal</span>
+      <span className={size === 'lg' ? 'text-xl font-bold tracking-tight' : 'text-xs font-semibold text-ink-2'}>{fmtInt(target)}</span>
+      <span className={size === 'lg' ? 'text-sm text-muted' : 'text-xs text-muted'}>{unit}</span>
       <Pencil className="size-3.5 text-muted group-hover:text-volt" aria-hidden />
     </button>
   )
 }
 
-function MacroBar({ protein, carbs, fat }) {
-  const parts = [
-    { key: 'Protein', grams: protein, kcal: protein * 4, color: COLORS.protein },
-    { key: 'Carbs', grams: carbs, kcal: carbs * 4, color: COLORS.carbs },
-    { key: 'Fat', grams: fat, kcal: fat * 9, color: COLORS.fat },
-  ]
-  const total = parts.reduce((s, p) => s + p.kcal, 0)
+/** Carb and fat goals follow from the calorie and protein targets: 25% of calories from fat, the rest carbs. */
+export function macroTargets(kcalTarget, proteinTarget) {
+  const fat = (kcalTarget * 0.25) / 9
+  const carbs = Math.max(0, (kcalTarget - proteinTarget * 4 - fat * 9) / 4)
+  return { protein: proteinTarget, carbs, fat }
+}
 
-  if (total === 0) {
-    return <p className="text-xs text-muted">Macros show up here when a logged food includes protein, carbs and fat.</p>
-  }
-
+function MacroRow({ label, grams, goal, color, editor }) {
+  const pct = goal > 0 ? grams / goal : 0
+  const over = pct > 1.05
   return (
     <div>
-      <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full" role="img" aria-label="Macro calorie split">
-        {parts.map(
-          (p) =>
-            p.kcal > 0 && (
-              <div key={p.key} style={{ width: `${(p.kcal / total) * 100}%`, backgroundColor: p.color }} className="first:rounded-l-full last:rounded-r-full" />
-            ),
-        )}
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-xs font-semibold text-ink-2">
+          <Swatch color={color} />
+          {label}
+        </span>
+        <span className="flex items-baseline gap-1 text-xs tabular-nums">
+          <span className="text-sm font-bold text-ink">{Math.round(grams)}</span>
+          <span className="text-muted">/</span>
+          {editor ?? <span className="text-muted">{Math.round(goal)} g</span>}
+        </span>
       </div>
-      <dl className="mt-2.5 grid grid-cols-3 gap-2">
-        {parts.map((p) => (
-          <div key={p.key}>
-            <dt className="flex items-center gap-1.5 text-xs text-ink-2">
-              <Swatch color={p.color} />
-              {p.key}
-            </dt>
-            <dd className="mt-0.5 text-sm">
-              <span className="font-semibold">{Math.round(p.grams)} g</span>
-              <span className="text-muted"> · {Math.round((p.kcal / total) * 100)}%</span>
-            </dd>
-          </div>
-        ))}
-      </dl>
+      <div
+        className="h-2 overflow-hidden rounded-full bg-line"
+        role="progressbar"
+        aria-label={`${label} ${Math.round(grams)} of ${Math.round(goal)} grams`}
+        aria-valuemin={0}
+        aria-valuemax={Math.round(goal)}
+        aria-valuenow={Math.round(grams)}
+      >
+        <div
+          className="h-full rounded-full transition-[width] duration-500"
+          style={{ width: `${Math.min(pct, 1) * 100}%`, backgroundColor: over ? COLORS.critical : color }}
+        />
+      </div>
     </div>
   )
 }
 
-export default function Dashboard({ consumed, burned, target, onTargetChange, macros, dayLabel }) {
+function MacroBars({ protein, carbs, fat, target, proteinTarget, onProteinTargetChange }) {
+  const goals = macroTargets(target, proteinTarget)
+  return (
+    <div className="space-y-2.5">
+      <MacroRow
+        label="Protein"
+        grams={protein}
+        goal={goals.protein}
+        color={COLORS.protein}
+        editor={
+          <TargetEditor
+            target={proteinTarget}
+            onChange={onProteinTargetChange}
+            min={20}
+            max={400}
+            step={5}
+            unit="g"
+            label="Protein target"
+            size="sm"
+          />
+        }
+      />
+      <MacroRow label="Carbs" grams={carbs} goal={goals.carbs} color={COLORS.carbs} />
+      <MacroRow label="Fat" grams={fat} goal={goals.fat} color={COLORS.fat} />
+    </div>
+  )
+}
+
+export default function Dashboard({ consumed, burned, target, onTargetChange, proteinTarget, onProteinTargetChange, macros, dayLabel }) {
   const net = consumed - burned
   const remaining = target - net
   const over = remaining < 0
@@ -159,7 +187,7 @@ export default function Dashboard({ consumed, burned, target, onTargetChange, ma
             </div>
           </div>
 
-          <MacroBar {...macros} />
+          <MacroBars {...macros} target={target} proteinTarget={proteinTarget} onProteinTargetChange={onProteinTargetChange} />
         </div>
       </div>
     </Card>

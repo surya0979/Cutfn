@@ -12,7 +12,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { makeId } from './id.js'
 import { STORAGE_KEYS, usePersistentState } from './storage.js'
 
-export const DEFAULT_SETTINGS = { targetKcal: 2000, weightUnit: 'lb', distanceUnit: 'mi' }
+export const DEFAULT_SETTINGS = { targetKcal: 2000, proteinTarget: 150, weightUnit: 'lb', distanceUnit: 'mi' }
 
 const byCreated = (a, b) => a.createdAt - b.createdAt
 

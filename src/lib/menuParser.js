@@ -20,7 +20,9 @@ const STOP = new Set(
   meal meals include includes included no school holiday break spring winter fall summer grade grades
   elementary middle high district price prices free reduced student students adult adults cafeteria
   nutrition calories cal kcal oz ounce ounces cup cups each per assorted fresh hot cold featuring
-  special option options main dish station grab go new homemade daily plus your pick one two`.split(/\s+/),
+  special option options main dish station grab go new homemade daily plus your pick one two
+  cyclic guidelines conti accompaniments snacks morning beverage lentil inter national international dutch year
+  allergic colour color code peanut sesame gluten gelatine dairy nuts veg for to products`.split(/\s+/),
 )
 
 export function normalize(text) {
@@ -162,11 +164,10 @@ export function parseMenu(text) {
   return { items: [...items.values()], unmatched }
 }
 
-export const SAMPLE_MENU = `LINCOLN HIGH SCHOOL — LUNCH MENU
-Monday: Pepperoni Pizza or Chicken Caesar Salad
-  Steamed Broccoli, Fresh Apple, 1% Milk
-Tuesday: Beef Tacos w/ Spanish Rice & Refried Beans
-Wednesday: Chiken Nugets (6 pc), Mashed Potatoes & Gravy, Dinner Roll
-Thursday: Spaghetti with Meat Sauce, Garlic Breadstick, Side Salad w/ Ranch
-Friday: Cheeseburger with Seasoned Fries, Chocolate Milk
-Daily: Fruit Cup, Chocolate Chip Cookie, Falafel Pita`
+export const SAMPLE_MENU = `WEEK 2 LUNCH MENU
+Monday: Paneer Butter Masala, Dal Makhani, Chapati, Plain Rice
+Tuesday: Penne Arrabiata, Palak Paneer, Arahar Dal
+Wednesday: Rajma Masala, Jeera Rice, Kosumbari
+Thursday: Mac And Cheese, Kadi Pakodi, Ice Cream
+Friday Special: Veg Burritos, Chiken Burritos
+Daily: Papad, Pickle, Curd, Seasonal Fruit, Paper Boat Coconut Water`

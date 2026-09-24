@@ -47,6 +47,7 @@ export default function App() {
     const seen = new Set()
     const out = []
     for (const m of recentMeals) {
+      if (m.source === 'quick' && m.name.startsWith('Quick add')) continue
       const key = m.name.toLowerCase()
       if (seen.has(key)) continue
       seen.add(key)
@@ -81,6 +82,8 @@ export default function App() {
           burned={totals.burned}
           target={settings.targetKcal}
           onTargetChange={(targetKcal) => updateSettings({ targetKcal })}
+          proteinTarget={settings.proteinTarget ?? 150}
+          onProteinTargetChange={(proteinTarget) => updateSettings({ proteinTarget })}
           macros={totals.macros}
           dayLabel={dayLabel}
         />

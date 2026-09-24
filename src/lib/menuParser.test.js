@@ -39,12 +39,11 @@ describe('parseMenu', () => {
   it('parses the sample menu into unique foods and leftovers', () => {
     const { items, unmatched } = parseMenu(SAMPLE_MENU)
     const found = items.map((i) => i.food.id)
-    for (const id of ['pepperoni-pizza', 'chicken-caesar', 'nuggets', 'spaghetti', 'cheeseburger', 'milk', 'cookie']) {
+    for (const id of ['paneer-butter-masala', 'dal-makhani', 'chapati', 'rajma', 'jeera-rice', 'kadhi', 'beef-burrito', 'coconut-water', 'curd']) {
       expect(found).toContain(id)
     }
     expect(new Set(found).size).toBe(found.length)
-    expect(unmatched.some((l) => /falafel/i.test(l))).toBe(true)
-    expect(unmatched.some((l) => /lunch menu/i.test(l))).toBe(false)
+    expect(unmatched).toEqual([])
   })
 
   it('counts repeats instead of duplicating rows', () => {
@@ -56,6 +55,19 @@ describe('parseMenu', () => {
 it('computes edit distance', () => {
   expect(editDistance('nuggets', 'nugets')).toBe(1)
   expect(editDistance('kitten', 'sitting')).toBe(3)
+})
+
+describe('Indian school menu', () => {
+  it('matches canteen dishes without swallowing longer names', () => {
+    expect(ids('Paneer Tikka Masala')).toEqual(['paneer-butter-masala'])
+    expect(ids('DAL Makhni')).toEqual(['dal-makhani'])
+    expect(ids('Chole Masala')).toEqual(['chole'])
+    expect(ids('Vada Pav and Dal Tadka')).toEqual(['vada-pav', 'dal'])
+    expect(ids('Kung Pao Tofu')).toEqual(['kung-pao-tofu'])
+    expect(ids('WATERMELON & LEMON SARBATH')).toEqual(['lemon-drink'])
+    expect(ids('Paper boat coconut water 100 ml')).toEqual(['coconut-water'])
+    expect(ids('COLUMBIAN COFFEE CAKE')).toEqual(['cake'])
+  })
 })
 
 describe('food database', () => {

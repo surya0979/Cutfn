@@ -1,9 +1,51 @@
-import { ChevronDown, Plus } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Check, ChevronDown, Plus } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { FOOD_BY_ID } from '../lib/foodDb.js'
 import { fmtInt } from '../lib/units.js'
 import { Button, Field, inputClass } from './ui.jsx'
 
 const blank = { name: '', kcal: '', p: '', c: '', f: '' }
+
+const QUICK_KCAL = [100, 250, 500]
+const coconut = FOOD_BY_ID['coconut-water']
+
+/** One-tap logging: generic calorie blocks plus a favorite drink. */
+function QuickAdd({ onAdd }) {
+  const [done, setDone] = useState(null)
+  const timer = useRef()
+  useEffect(() => () => clearTimeout(timer.current), [])
+
+  const log = (key, meal) => {
+    onAdd(meal)
+    setDone(key)
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => setDone(null), 1200)
+  }
+  const chip = 'inline-flex items-center gap-1 rounded-lg bg-raised px-3 py-1.5 text-xs font-semibold ring-1 ring-line transition-colors hover:text-volt hover:ring-volt/40'
+
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-medium text-muted">Quick add</p>
+      <div className="flex flex-wrap gap-1.5">
+        {QUICK_KCAL.map((kcal) => (
+          <button key={kcal} type="button" className={`${chip} ${done === kcal ? 'text-good-ink' : 'text-ink'}`} onClick={() => log(kcal, { name: `Quick add ${kcal} kcal`, kcal, source: 'quick' })}>
+            {done === kcal ? <Check className="size-3.5" aria-hidden /> : <Plus className="size-3.5" aria-hidden />}
+            {kcal} kcal
+          </button>
+        ))}
+        <button
+          type="button"
+          className={`${chip} ${done === 'coconut' ? 'text-good-ink' : 'text-ink'}`}
+          onClick={() => log('coconut', { name: coconut.name, portion: coconut.portion, kcal: coconut.kcal, protein: coconut.p, carbs: coconut.c, fat: coconut.f, source: 'quick' })}
+          title={`${coconut.name}, ${coconut.portion}: about ${coconut.kcal} kcal`}
+        >
+          {done === 'coconut' ? <Check className="size-3.5" aria-hidden /> : <Plus className="size-3.5" aria-hidden />}
+          Coconut water <span className="font-normal text-muted">{coconut.kcal}</span>
+        </button>
+      </div>
+    </div>
+  )
+}
 const num = (v) => (v === '' || v == null ? null : Number(v))
 
 export default function ManualEntry({ onAdd, recentFoods, prefill }) {
@@ -114,6 +156,8 @@ export default function ManualEntry({ onAdd, recentFoods, prefill }) {
       <Button type="submit" className="w-full">
         <Plus className="size-4" aria-hidden /> Add to log
       </Button>
+
+      <QuickAdd onAdd={onAdd} />
 
       {recentFoods.length > 0 && (
         <div>
