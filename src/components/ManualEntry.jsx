@@ -1,5 +1,6 @@
-import { Check, ChevronDown, Plus } from 'lucide-react'
+import { Check, ChevronDown, LoaderCircle, Plus, Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { estimateFoods, useAiAvailable } from '../lib/aiEstimate.js'
 import { FOOD_BY_ID } from '../lib/foodDb.js'
 import { fmtInt } from '../lib/units.js'
 import { Button, Field, inputClass } from './ui.jsx'
@@ -65,12 +66,42 @@ export default function ManualEntry({ onAdd, recentFoods, prefill }) {
   const hasMacros = macros.p != null || macros.c != null || macros.f != null
   const macroKcal = (macros.p ?? 0) * 4 + (macros.c ?? 0) * 4 + (macros.f ?? 0) * 9
 
-  const submit = (e) => {
+  const aiAvailable = useAiAvailable()
+  const [estimating, setEstimating] = useState(false)
+  const [estimated, setEstimated] = useState(null)
+  const typedKcal = num(form.kcal)
+  const aiMode = aiAvailable && typedKcal == null && !hasMacros && form.name.trim() !== ''
+
+  const submit = async (e) => {
     e.preventDefault()
+    if (estimating) return
     const name = form.name.trim()
-    const kcal = num(form.kcal) ?? (hasMacros ? Math.round(macroKcal) : null)
-    if (!name) return setError('Give the food a name.')
-    if (!(kcal > 0) || kcal > 10000) return setError('Enter calories between 1 and 10,000.')
+    if (!name) return setError('Type what you ate.')
+    setEstimated(null)
+
+    if (aiMode) {
+      // No calories typed: let Claude estimate, then log each food it found.
+      setEstimating(true)
+      setError('')
+      try {
+        const items = await estimateFoods(name)
+        for (const it of items) {
+          onAdd({ name: it.name, portion: it.portion, kcal: it.kcal, protein: it.protein, carbs: it.carbs, fat: it.fat, source: 'ai', note: it.assumption })
+        }
+        setEstimated(items)
+        setForm(blank)
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setEstimating(false)
+      }
+      return
+    }
+
+    const kcal = typedKcal ?? (hasMacros ? Math.round(macroKcal) : null)
+    if (!(kcal > 0) || kcal > 10000) {
+      return setError(aiAvailable === false ? 'Enter calories between 1 and 10,000. (AI estimates work in the claude.ai version.)' : 'Enter calories between 1 and 10,000.')
+    }
     onAdd({
       name,
       kcal: Math.round(kcal),
@@ -100,7 +131,7 @@ export default function ManualEntry({ onAdd, recentFoods, prefill }) {
       <div className="grid grid-cols-[1fr_7.5rem] gap-2">
         <Field label="Food">
           {(id) => (
-            <input id={id} value={form.name} onChange={set('name')} placeholder="e.g. Protein shake" autoComplete="off" maxLength={80} className={inputClass} />
+            <input id={id} value={form.name} onChange={set('name')} placeholder={aiAvailable ? 'e.g. 2 chapatis + dal' : 'e.g. Protein shake'} autoComplete="off" maxLength={200} className={inputClass} />
           )}
         </Field>
         <Field label="Calories">
@@ -112,7 +143,7 @@ export default function ManualEntry({ onAdd, recentFoods, prefill }) {
               min={0}
               value={form.kcal}
               onChange={set('kcal')}
-              placeholder={hasMacros && macroKcal > 0 ? fmtInt(macroKcal) : 'kcal'}
+              placeholder={hasMacros && macroKcal > 0 ? fmtInt(macroKcal) : aiAvailable ? 'AI' : 'kcal'}
               className={inputClass}
             />
           )}
@@ -153,9 +184,40 @@ export default function ManualEntry({ onAdd, recentFoods, prefill }) {
         </p>
       )}
 
-      <Button type="submit" className="w-full">
-        <Plus className="size-4" aria-hidden /> Add to log
+      <Button type="submit" className="w-full" disabled={estimating}>
+        {estimating ? (
+          <>
+            <LoaderCircle className="size-4 animate-spin" aria-hidden /> Asking Claude for calories…
+          </>
+        ) : aiMode ? (
+          <>
+            <Sparkles className="size-4" aria-hidden /> Add with AI estimate
+          </>
+        ) : (
+          <>
+            <Plus className="size-4" aria-hidden /> Add to log
+          </>
+        )}
       </Button>
+      {aiAvailable && !estimated && !error && (
+        <p className="-mt-1 text-xs text-muted">Don’t know the calories? Leave them blank and Claude estimates them, macros included.</p>
+      )}
+      {estimated && (
+        <div role="status" className="rounded-xl bg-volt-soft px-3 py-2.5 text-xs ring-1 ring-volt/25">
+          <p className="mb-1 flex items-center gap-1.5 font-semibold text-ink">
+            <Sparkles className="size-3.5 text-volt" aria-hidden /> Logged with Claude’s estimate
+          </p>
+          <ul className="space-y-1 text-ink-2">
+            {estimated.map((it, i) => (
+              <li key={i}>
+                <span className="font-semibold text-ink">{it.name}</span> · {it.portion} · {fmtInt(it.kcal)} kcal · P {it.protein} C {it.carbs} F {it.fat}
+                {it.assumption && <span className="block text-muted">Assumed {it.assumption.replace(/^assum(ed|ing)\s*/i, '')}</span>}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-muted">Wrong portion? Delete it below and add it again with a quantity, like “2 bowls”.</p>
+        </div>
+      )}
 
       <QuickAdd onAdd={onAdd} />
 

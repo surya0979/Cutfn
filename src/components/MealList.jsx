@@ -1,4 +1,4 @@
-import { ScanLine, Trash2, Utensils } from 'lucide-react'
+import { ScanLine, Sparkles, Trash2, Utensils } from 'lucide-react'
 import { COLORS } from '../lib/theme.js'
 import { formatTime } from '../lib/dates.js'
 import { dayPossessive } from '../lib/labels.js'
@@ -34,6 +34,7 @@ export default function MealList({ meals, onDelete, dayLabel }) {
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-1.5 truncate font-medium">
                   {meal.source === 'menu' && <ScanLine className="size-3.5 shrink-0 text-muted" aria-label="From menu scan" />}
+                  {meal.source === 'ai' && <Sparkles className="size-3.5 shrink-0 text-volt" aria-label="AI estimate" />}
                   <span className="truncate">{meal.name}</span>
                 </p>
                 <p className="truncate text-xs text-muted">
