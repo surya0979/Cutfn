@@ -1,0 +1,64 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+
+  --color-page: #0a0c0f;
+  --color-surface: #12161b;
+  --color-raised: #1a2027;
+  --color-line: #232a33;
+  --color-ink: #f4f6f8;
+  --color-ink-2: #b4bcc6;
+  --color-muted: #7d8793;
+
+  --color-volt: #c6f432;
+  --color-volt-soft: #c6f43214;
+  --color-eat: #3987e5;
+  --color-burn: #d95926;
+  --color-burn-ink: #f08a5d;
+  --color-protein: #3987e5;
+  --color-carbs: #199e70;
+  --color-fat: #c98500;
+  --color-trend: #d55181;
+  --color-good: #0ca30c;
+  --color-good-ink: #3ecf3e;
+  --color-critical: #d03b3b;
+  --color-critical-ink: #f07070;
+  --color-warning: #fab219;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-page text-ink font-sans antialiased;
+    min-height: 100dvh;
+  }
+  /* Hide number spinners; steppers are provided where they help. */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-volt);
+    outline-offset: 2px;
+  }
+  [id] {
+    scroll-margin-top: 7rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
