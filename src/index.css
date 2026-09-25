@@ -11,8 +11,8 @@
   --color-raised: #1a2027;
   --color-line: #232a33;
   --color-ink: #f4f6f8;
-  --color-ink-2: #b4bcc6;
-  --color-muted: #7d8793;
+  --color-ink-2: #c3cad2;
+  --color-muted: #939eab;
 
   --color-volt: #c6f432;
   --color-volt-soft: #c6f43214;
@@ -30,15 +30,31 @@
   --color-warning: #fab219;
 }
 
+/*
+ * Page base, deliberately outside @layer: claude.ai wraps the page in its own
+ * unlayered starter styles (light color-scheme, dark body text on an
+ * off-white ground). Unlayered rules beat layered ones, so these must be
+ * unlayered too, and they load later, so they win.
+ */
+:root,
+html {
+  color-scheme: dark;
+  background: var(--color-page);
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--color-page);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 @layer base {
-  html {
-    color-scheme: dark;
-    -webkit-tap-highlight-color: transparent;
-  }
-  body {
-    @apply bg-page text-ink font-sans antialiased;
-    min-height: 100dvh;
-  }
   /* Hide number spinners; steppers are provided where they help. */
   input[type='number']::-webkit-outer-spin-button,
   input[type='number']::-webkit-inner-spin-button {

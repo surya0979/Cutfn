@@ -106,7 +106,7 @@ export function Field({ label, hint, children, className = '' }) {
 }
 
 export const inputClass =
-  'w-full rounded-xl border border-line bg-page px-3 py-2.5 text-[15px] text-ink placeholder:text-muted/70 transition-colors focus:border-volt/60 focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-volt/25'
+  'w-full rounded-xl border border-line bg-page px-3 py-2.5 text-[15px] text-ink placeholder:text-muted transition-colors focus:border-volt/60 focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-volt/25'
 
 export function Button({ variant = 'primary', className = '', children, ...props }) {
   const styles = {

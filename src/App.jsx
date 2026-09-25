@@ -193,7 +193,7 @@ export default function App() {
   )
 
   return (
-    <div className="min-h-dvh">
+    <div className="min-h-dvh bg-page text-ink">
       <Header date={date} today={today} syncMode={mode} onDateChange={(d) => setViewDate(d >= today ? null : d)} tab={tab} onTabChange={(t) => setTab(t)} />
 
       {error && (
