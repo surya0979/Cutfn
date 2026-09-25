@@ -29,7 +29,7 @@ function MacroLine({ p, c, f }) {
   )
 }
 
-function ResultRow({ item, onAdd, source = 'menu' }) {
+export function ResultRow({ item, onAdd, source = 'menu' }) {
   const { food, fuzzy, matchedText } = item
   const [servings, setServings] = useState(1)
   const [added, setAdded] = useState(false)

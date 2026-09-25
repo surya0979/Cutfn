@@ -1,4 +1,4 @@
-import { CalendarDays, Check, FileUp, HelpCircle, LoaderCircle, Plus, Settings2, Trash2 } from 'lucide-react'
+import { CalendarDays, Camera, Check, FileUp, HelpCircle, LoaderCircle, Plus, Settings2, Sparkles, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { formatShortDate } from '../lib/dates.js'
 import { SECTION_LABEL, SECTIONS } from '../lib/sections.js'
@@ -34,7 +34,7 @@ function DishButton({ food, onAdd }) {
   )
 }
 
-export default function TodayMenu({ date, today, menus, onSaveMenus, onDeleteMenu, onAdd, onManual }) {
+export default function TodayMenu({ date, today, menus, onSaveMenus, onDeleteMenu, onAdd, onManual, onPhoto }) {
   const [status, setStatus] = useState(null)
   const [busy, setBusy] = useState(false)
   const [managing, setManaging] = useState(false)
@@ -44,9 +44,9 @@ export default function TodayMenu({ date, today, menus, onSaveMenus, onDeleteMen
   const bySection = useMemo(() => {
     if (!found) return []
     return SECTIONS.map((s) => {
-      const { foods, unknown } = menuFoods(found.entries.filter((e) => (e.section ?? 'lunch') === s.id))
-      return { ...s, foods, unknown }
-    }).filter((s) => s.foods.length || s.unknown.length)
+      const { foods, unknown, special } = menuFoods(found.entries.filter((e) => (e.section ?? 'lunch') === s.id))
+      return { ...s, foods, unknown, special }
+    }).filter((s) => s.foods.length || s.unknown.length || s.special.length)
   }, [found])
 
   async function upload(files) {
@@ -155,6 +155,20 @@ export default function TodayMenu({ date, today, menus, onSaveMenus, onDeleteMen
           {bySection.map((s) => (
             <div key={s.id}>
               <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted">{SECTION_LABEL[s.id]}</h3>
+              {s.special.length > 0 && (
+                <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-volt-soft px-3 py-2.5 ring-1 ring-volt/25">
+                  <p className="flex items-center gap-2 text-sm">
+                    <Sparkles className="size-4 text-volt" aria-hidden />
+                    <span>
+                      <b className="font-semibold">{s.special[0].text.toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase())}</b>
+                      <span className="text-ink-2">: dishes aren’t listed on the menu.</span>
+                    </span>
+                  </p>
+                  <Button className="py-1.5" onClick={onPhoto}>
+                    <Camera className="size-4" aria-hidden /> Log it with a photo
+                  </Button>
+                </div>
+              )}
               <div className="flex flex-wrap gap-1.5">
                 {s.foods.map(({ food }) => (
                   <DishButton

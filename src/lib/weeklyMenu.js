@@ -71,8 +71,8 @@ export function parseWeeklyMenu(cells, fallbackWeekStart) {
     }
     for (const c of row) {
       if (!dayCol.has(c.col) || /^\*+$/.test(c.text) || c.text.length < 2) continue
-      if (/special lunch/i.test(c.text)) continue
-      days[dayCol.get(c.col)].push({ text: c.text, category: label, section })
+      const special = /special lunch/i.test(c.text)
+      days[dayCol.get(c.col)].push(special ? { text: c.text, category: label, section, special } : { text: c.text, category: label, section })
     }
   }
   return { weekStart, week: weekNo, title, days }
@@ -102,12 +102,17 @@ export function menuForDate(menus, dateKey) {
   return { menu, weekday, repeated, entries }
 }
 
-/** Menu entries split into matched foods (one per dish found) and unmatched text. */
+/** Menu entries split into matched foods (one per dish found), unmatched text and "special lunch" slots. */
 export function menuFoods(entries) {
   const foods = []
   const unknown = []
+  const special = []
   const seen = new Set()
   for (const entry of entries) {
+    if (entry.special) {
+      special.push(entry)
+      continue
+    }
     const matches = matchLine(entry.text)
     if (!matches.length) {
       unknown.push(entry)
@@ -119,5 +124,5 @@ export function menuFoods(entries) {
       foods.push({ food: m.food, entry })
     }
   }
-  return { foods, unknown }
+  return { foods, unknown, special }
 }

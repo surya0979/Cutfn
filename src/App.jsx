@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import CardioLog from './components/CardioLog.jsx'
+import DataCard from './components/DataCard.jsx'
 import Dashboard, { Guardrails } from './components/Dashboard.jsx'
 import Header, { BottomNav, TAB_OF } from './components/Header.jsx'
 import LogMeal from './components/LogMeal.jsx'
@@ -81,6 +82,7 @@ export default function App() {
   const updateSettings = actions.updateSettings
   const [section, setSection] = useState(() => sectionForTime())
   const [prefillRequest, setPrefillRequest] = useState(null)
+  const clearPrefill = useCallback(() => setPrefillRequest(null), [])
 
   // Burns are recomputed from stored inputs against the latest weigh-in as of
   // that day, so logging a new weight immediately updates the day's totals.
@@ -233,6 +235,10 @@ export default function App() {
                 onDeleteMenu={actions.deleteMenu}
                 onAdd={addMeal}
                 onManual={openManual}
+                onPhoto={() => {
+                  setPrefillRequest({ tab: 'photo', at: Date.now() })
+                  setTab('food', 'food')
+                }}
               />
               {mealList}
             </div>
@@ -251,6 +257,7 @@ export default function App() {
               onLogUsual={logUsual}
               onDeleteUsual={actions.deleteCombo}
               prefillRequest={prefillRequest}
+              onPrefillHandled={clearPrefill}
             />
             {mealList}
           </div>
@@ -294,6 +301,7 @@ export default function App() {
               smart={smart}
               onUseTarget={(targetKcal) => updateSettings({ targetKcal })}
             />
+            <DataCard loadAll={actions.loadAll} restore={actions.restore} />
           </>
         )}
 

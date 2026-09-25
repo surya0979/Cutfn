@@ -179,6 +179,41 @@ function useCloudData(backend, date, today) {
       },
       deleteMenu: (id) => write(() => refs.menus.doc(id).delete(), setError),
       updateSettings: (patch) => queued('settings', () => refs.settings.set({ ...settingsRef.current, ...patch })),
+      loadAll: async () => {
+        const all = async (col) => fromSnap(await col.get())
+        const [meals, exercises, weights, water, savedMeals, menus, settings] = await Promise.all([
+          all(refs.meals),
+          all(refs.exercises),
+          all(refs.weights),
+          all(refs.water),
+          all(refs.savedMeals),
+          all(refs.menus),
+          refs.settings.get().then((d) => ({ ...DEFAULT_SETTINGS, ...(d.exists ? d.data() : {}) })),
+        ])
+        return { meals, exercises, weights, water, savedMeals, menus, settings }
+      },
+      restore: async (data, onProgress = () => {}) => {
+        const jobs = [
+          ...data.meals.map((m) => () => refs.meals.doc(m.id ?? makeId()).set(toDoc(m))),
+          ...data.exercises.map((e) => () => refs.exercises.doc(e.id ?? makeId()).set(toDoc(e))),
+          ...data.weights.map((w) => () => refs.weights.doc(w.date).set(toDoc(w))),
+          ...data.water.map((w) => () => refs.water.doc(w.date).set({ date: w.date, glasses: Number(w.glasses) || 0 })),
+          ...data.savedMeals.map((u) => () => refs.savedMeals.doc(u.id ?? makeId()).set(toDoc(u))),
+          ...data.menus.map((m) => () => refs.menus.doc(m.weekStart).set(toDoc(m))),
+        ]
+        if (data.settings) jobs.push(() => refs.settings.set({ ...DEFAULT_SETTINGS, ...data.settings }))
+        // A few writes at a time: fast, without flooding the store.
+        let done = 0
+        const queue = [...jobs]
+        const worker = async () => {
+          while (queue.length) {
+            const job = queue.shift()
+            await write(job, setError)
+            onProgress(++done / jobs.length)
+          }
+        }
+        await Promise.all([worker(), worker(), worker(), worker()])
+      },
     }
   }, [refs])
 
@@ -222,6 +257,23 @@ function useLocalData(date, today) {
     saveMenus: (weeks) => weeks.forEach((w) => upsert(setMenus, 'weekStart')({ ...w, id: w.weekStart })),
     deleteMenu: (id) => setMenus((list) => list.filter((m) => m.id !== id)),
     updateSettings: (patch) => setSettings((s) => ({ ...s, ...patch })),
+    loadAll: async () => ({ meals, exercises, weights, water, savedMeals, menus, settings: { ...DEFAULT_SETTINGS, ...settings } }),
+    restore: async (data, onProgress = () => {}) => {
+      // Merge by id (or date, for one-per-day records); backup entries win.
+      const merge = (list, incoming, key) => {
+        const map = new Map(list.map((x) => [x[key], x]))
+        for (const x of incoming) map.set(x[key] ?? makeId(), { ...x, id: x.id ?? x[key] ?? makeId() })
+        return [...map.values()]
+      }
+      setMeals((l) => merge(l, data.meals.map((m) => ({ ...m, id: m.id ?? makeId() })), 'id'))
+      setExercises((l) => merge(l, data.exercises.map((e) => ({ ...e, id: e.id ?? makeId() })), 'id'))
+      setWeights((l) => merge(l, data.weights, 'date'))
+      setWaterList((l) => merge(l, data.water, 'date'))
+      setSavedMeals((l) => merge(l, data.savedMeals.map((u) => ({ ...u, id: u.id ?? makeId() })), 'id'))
+      setMenus((l) => merge(l, data.menus.map((m) => ({ ...m, id: m.weekStart })), 'weekStart'))
+      if (data.settings) setSettings((s) => ({ ...s, ...data.settings }))
+      onProgress(1)
+    },
   }
 
   return { ...derived, weights, water, savedMeals, menus, settings, actions, ready: true, error: null, clearError: () => {} }

@@ -1,10 +1,11 @@
-import { Bookmark, Check, PenLine, ScanLine, UtensilsCrossed, X } from 'lucide-react'
+import { Bookmark, Camera, Check, PenLine, ScanLine, UtensilsCrossed, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { dayInline } from '../lib/labels.js'
 import { SECTIONS } from '../lib/sections.js'
 import { fmtInt } from '../lib/units.js'
 import ManualEntry from './ManualEntry.jsx'
 import MenuScanner from './MenuScanner.jsx'
+import PhotoEstimate from './PhotoEstimate.jsx'
 import { Card, CardHeader, TabPanel, Tabs } from './ui.jsx'
 
 /** Saved combos ("My usual lunch") that log several foods in one tap. */
@@ -66,17 +67,21 @@ function Usuals({ usuals, onLog, onDelete }) {
   )
 }
 
-export default function LogMeal({ onAdd, recentFoods, dayLabel, section, onSectionChange, usuals, onLogUsual, onDeleteUsual, prefillRequest }) {
+export default function LogMeal({ onAdd, recentFoods, dayLabel, section, onSectionChange, usuals, onLogUsual, onDeleteUsual, prefillRequest, onPrefillHandled }) {
   const [tab, setTab] = useState('manual')
   const [prefill, setPrefill] = useState(null)
 
   // Dishes tapped elsewhere (e.g. an unknown item on today's menu) open here.
   useEffect(() => {
-    if (prefillRequest) {
+    if (!prefillRequest) return
+    if (prefillRequest.tab) setTab(prefillRequest.tab)
+    else {
       setPrefill(prefillRequest)
       setTab('manual')
     }
-  }, [prefillRequest])
+    // Handled once; revisiting the Food tab later shouldn't replay it.
+    onPrefillHandled?.()
+  }, [prefillRequest, onPrefillHandled])
 
   return (
     <Card id="food">
@@ -98,13 +103,19 @@ export default function LogMeal({ onAdd, recentFoods, dayLabel, section, onSecti
         onChange={setTab}
         tabs={[
           { value: 'manual', label: 'Manual', icon: PenLine },
-          { value: 'scan', label: 'Scan menu', icon: ScanLine },
+          { value: 'scan', label: 'Menu', icon: ScanLine },
+          { value: 'photo', label: 'Photo', icon: Camera },
         ]}
       />
       {/* Keep both mounted so a scan in progress survives a tab switch. */}
       <div hidden={tab !== 'manual'}>
         <TabPanel value="manual">
           <ManualEntry onAdd={onAdd} recentFoods={recentFoods} prefill={prefill} />
+        </TabPanel>
+      </div>
+      <div hidden={tab !== 'photo'}>
+        <TabPanel value="photo">
+          <PhotoEstimate onAdd={onAdd} />
         </TabPanel>
       </div>
       <div hidden={tab !== 'scan'}>
