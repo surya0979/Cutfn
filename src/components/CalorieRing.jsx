@@ -1,13 +1,14 @@
 import { COLORS } from '../lib/theme.js'
 import { fmtInt } from '../lib/units.js'
 
-/** Progress ring for net calories (consumed − burned) against the daily target. */
-export default function CalorieRing({ net, target, size = 208 }) {
+/** Progress ring for calories eaten against the daily max. */
+export default function CalorieRing({ eaten, target }) {
+  const size = 208
   const stroke = 16
   const r = (size - stroke) / 2
   const circumference = 2 * Math.PI * r
-  const ratio = target > 0 ? Math.max(0, net) / target : 0
-  const over = net > target
+  const ratio = target > 0 ? Math.max(0, eaten) / target : 0
+  const over = eaten > target
   const shown = Math.min(ratio, 1)
   const pct = Math.round(ratio * 100)
 
@@ -17,7 +18,7 @@ export default function CalorieRing({ net, target, size = 208 }) {
         viewBox={`0 0 ${size} ${size}`}
         className="size-full -rotate-90"
         role="img"
-        aria-label={`Net ${fmtInt(net)} of ${fmtInt(target)} kilocalories, ${pct}% of target`}
+        aria-label={`Eaten ${fmtInt(eaten)} of ${fmtInt(target)} kilocalorie daily max, ${pct}%`}
       >
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={COLORS.line} strokeWidth={stroke} />
         <circle
@@ -38,10 +39,10 @@ export default function CalorieRing({ net, target, size = 208 }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Net kcal</span>
-        <span className="font-display text-6xl font-bold leading-none tracking-tight">{fmtInt(net)}</span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Eaten</span>
+        <span className="font-display text-6xl font-bold leading-none tracking-tight">{fmtInt(eaten)}</span>
         <span className="mt-0.5 text-xs text-ink-2">
-          of {fmtInt(target)} · {pct}%
+          of {fmtInt(target)} max · {pct}%
         </span>
       </div>
     </div>

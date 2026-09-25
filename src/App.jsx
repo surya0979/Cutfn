@@ -78,8 +78,15 @@ export default function App() {
     ready,
     error,
     clearError,
+    settingsLoaded,
   } = useTrackerData(date, today)
   const updateSettings = actions.updateSettings
+  // One-time switch to the intake cap: the daily max applies to food eaten
+  // (exercise no longer adds to it) and starts at 2,200 kcal.
+  useEffect(() => {
+    if (settingsLoaded && mode !== 'connecting' && !settings.intakeCap) updateSettings({ targetKcal: 2200, intakeCap: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsLoaded, mode, settings.intakeCap])
   const [section, setSection] = useState(() => sectionForTime())
   const [prefillRequest, setPrefillRequest] = useState(null)
   const clearPrefill = useCallback(() => setPrefillRequest(null), [])

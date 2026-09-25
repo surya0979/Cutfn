@@ -1,34 +1,11 @@
-import { Beef, CircleAlert, Droplet, Minus, Pencil, Plus, ShieldAlert, TriangleAlert } from 'lucide-react'
+import { Beef, CircleAlert, Droplet, Flame, Minus, Pencil, Plus, ShieldAlert, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { COLORS } from '../lib/theme.js'
 import { fmtInt } from '../lib/units.js'
 import CalorieRing from './CalorieRing.jsx'
 import { Card, inputClass, Swatch } from './ui.jsx'
 
-function Term({ label, value, color, sign }) {
-  return (
-    <div className="flex min-w-0 flex-1 flex-col gap-1 rounded-xl bg-page px-3 py-2.5 ring-1 ring-line">
-      <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
-        {color && <Swatch color={color} />}
-        {label}
-      </span>
-      <span className="font-display text-3xl font-bold leading-none tracking-tight">
-        {sign}
-        {fmtInt(value)}
-      </span>
-    </div>
-  )
-}
-
-function Operator({ children }) {
-  return (
-    <span aria-hidden className="self-center text-lg font-bold text-muted">
-      {children}
-    </span>
-  )
-}
-
-function TargetEditor({ target, onChange, min = 800, max = 8000, step = 50, unit = 'kcal', label = 'Daily calorie target', size = 'lg' }) {
+function TargetEditor({ target, onChange, min = 800, max = 8000, step = 50, unit = 'kcal', label = 'Daily calorie max', size = 'lg' }) {
   const [draft, setDraft] = useState(null)
   const editing = draft !== null
 
@@ -70,11 +47,11 @@ function TargetEditor({ target, onChange, min = 800, max = 8000, step = 50, unit
     <button
       type="button"
       onClick={() => setDraft(String(target))}
-      className="group inline-flex items-center gap-2 rounded-lg px-2 py-1 -mx-2 text-left hover:bg-raised"
+      className="group inline-flex max-w-full items-center gap-1.5 rounded-lg py-1 text-left"
       aria-label={`${label} ${target} ${unit}. Edit`}
     >
-      <span className={size === 'lg' ? 'font-display text-3xl font-bold leading-none tracking-tight' : 'text-xs font-semibold text-ink-2'}>{fmtInt(target)}</span>
-      <span className={size === 'lg' ? 'text-sm text-muted' : 'text-xs text-muted'}>{unit}</span>
+      <span className={size === 'lg' ? 'font-display text-2xl font-bold leading-none tracking-tight group-hover:text-volt sm:text-3xl' : 'text-xs font-semibold text-ink-2'}>{fmtInt(target)}</span>
+      <span className={size === 'lg' ? 'hidden text-xs text-muted sm:inline' : 'text-xs text-muted'}>{unit}</span>
       <Pencil className="size-3.5 text-muted group-hover:text-volt" aria-hidden />
     </button>
   )
@@ -235,42 +212,46 @@ function WaterTracker({ glasses, goal, onChange }) {
 }
 
 export default function Dashboard({ consumed, burned, target, onTargetChange, proteinTarget, onProteinTargetChange, macros, dayLabel, proteinIdeas, onAddFood, water }) {
-  const net = consumed - burned
-  const remaining = target - net
+  // The daily max caps calories eaten. Exercise is shown but never adds to it.
+  const remaining = target - consumed
   const over = remaining < 0
 
   return (
     <Card id="today" aria-label={`${dayLabel} summary`}>
       <div className="flex flex-col items-center gap-6 md:flex-row md:items-stretch">
-        <CalorieRing net={net} target={target} />
+        <CalorieRing eaten={consumed} target={target} />
 
         <div className="flex w-full min-w-0 flex-1 flex-col gap-4">
           <div>
-            <h1 className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{dayLabel} · Net calories</h1>
-            <div className="mt-2 flex items-stretch gap-1.5 sm:gap-2">
-              <Term label="Eaten" value={consumed} color={COLORS.eat} />
-              <Operator>−</Operator>
-              <Term label="Burned" value={burned} color={COLORS.burn} />
-              <Operator>=</Operator>
-              <Term label="Net" value={net} color={over ? COLORS.critical : COLORS.volt} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-xl bg-page px-3 py-2.5 ring-1 ring-line">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">Daily target</div>
-              <TargetEditor target={target} onChange={onTargetChange} />
-            </div>
-            <div className={`rounded-xl px-3 py-2.5 ring-1 ${over ? 'bg-critical/10 ring-critical/40' : 'bg-volt-soft ring-volt/25'}`}>
-              <div className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
-                {over && <CircleAlert className="size-3.5 text-critical-ink" aria-hidden />}
-                {over ? 'Over target' : 'Remaining'}
+            <h1 className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{dayLabel} · Calories</h1>
+            <div className="mt-2 grid grid-cols-3 gap-1.5 sm:gap-2 [&>div]:min-w-0 [&>div]:px-2.5 sm:[&>div]:px-3">
+              <div className="rounded-xl bg-page px-3 py-2.5 ring-1 ring-line">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                  <Swatch color={COLORS.eat} /> Max
+                </div>
+                <TargetEditor target={target} onChange={onTargetChange} />
               </div>
-              <div className="py-1">
-                <span className={`font-display text-3xl font-bold leading-none tracking-tight ${over ? 'text-critical-ink' : 'text-volt'}`}>{fmtInt(Math.abs(remaining))}</span>
-                <span className="ml-2 text-sm text-muted">kcal</span>
+              <div className={`rounded-xl px-3 py-2.5 ring-1 ${over ? 'bg-critical/10 ring-critical/40' : 'bg-volt-soft ring-volt/25'}`}>
+                <div className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                  {over && <CircleAlert className="size-3.5 text-critical-ink" aria-hidden />}
+                  {over ? 'Over' : 'Left'}
+                </div>
+                <div className="py-1">
+                  <span className={`font-display text-2xl font-bold leading-none tracking-tight sm:text-3xl ${over ? 'text-critical-ink' : 'text-volt'}`}>{fmtInt(Math.abs(remaining))}</span>
+                  <span className="ml-1 hidden text-xs text-muted sm:inline">kcal</span>
+                </div>
+              </div>
+              <div className="rounded-xl bg-page px-3 py-2.5 ring-1 ring-line">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                  <Flame className="size-3.5 text-burn-ink" aria-hidden /> Burned
+                </div>
+                <div className="py-1">
+                  <span className="font-display text-2xl font-bold leading-none tracking-tight sm:text-3xl">{fmtInt(burned)}</span>
+                  <span className="ml-1 hidden text-xs text-muted sm:inline">kcal</span>
+                </div>
               </div>
             </div>
+            <p className="mt-1.5 text-xs text-muted">Daily max and calories left, in kcal. Burned calories are shown for your info and don’t raise your max.</p>
           </div>
 
           <MacroBars {...macros} target={target} proteinTarget={proteinTarget} onProteinTargetChange={onProteinTargetChange} />

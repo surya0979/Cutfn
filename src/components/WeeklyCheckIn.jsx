@@ -19,43 +19,43 @@ function Stat({ label, value, sub }) {
   )
 }
 
-/** Seven columns of net calories against the target line. */
+/** Seven columns of calories eaten against the daily max. */
 function WeekBars({ days, target }) {
-  const max = Math.max(target * 1.25, ...days.map((d) => d.net))
+  const max = Math.max(target * 1.25, ...days.map((d) => d.eaten))
   const h = 120
   const y = (v) => h - (Math.max(0, v) / max) * h
   return (
     <figure>
       <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-2" aria-hidden>
         <span className="flex items-center gap-1.5">
-          <Swatch color={COLORS.eat} /> Net kcal
+          <Swatch color={COLORS.eat} /> Eaten
         </span>
         <span className="flex items-center gap-1.5">
-          <Swatch color={COLORS.critical} /> Over target
+          <Swatch color={COLORS.critical} /> Over max
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-0.5 w-3.5 rounded-full bg-volt" /> Target {fmtInt(target)}
+          <span className="h-0.5 w-3.5 rounded-full bg-volt" /> Max {fmtInt(target)}
         </span>
       </div>
       <div className="relative" style={{ height: h + 36 }}>
         <div className="absolute inset-x-0 border-t border-volt/70" style={{ top: y(target) }} aria-hidden />
         <ol className="absolute inset-0 grid grid-cols-7 gap-1.5">
           {days.map((d) => {
-            const over = d.logged && d.net > target
+            const over = d.logged && d.eaten > target
             return (
-              <li key={d.date} className="flex flex-col items-center" title={`${weekday(d.date)}: ${d.entries ? `${fmtInt(d.net)} kcal net` : 'not logged'}`}>
+              <li key={d.date} className="flex flex-col items-center" title={`${weekday(d.date)}: ${d.entries ? `${fmtInt(d.eaten)} kcal eaten` : 'not logged'}`}>
                 <div className="relative w-full" style={{ height: h }}>
                   {d.entries > 0 ? (
                     <div
                       className="absolute bottom-0 left-1/2 w-full max-w-6 -translate-x-1/2 rounded-t"
-                      style={{ height: h - y(d.net), backgroundColor: over ? COLORS.critical : COLORS.eat, opacity: d.logged ? 1 : 0.45 }}
+                      style={{ height: h - y(d.eaten), backgroundColor: over ? COLORS.critical : COLORS.eat, opacity: d.logged ? 1 : 0.45 }}
                     />
                   ) : (
                     <div className="absolute bottom-0 left-1/2 h-1 w-full max-w-6 -translate-x-1/2 rounded bg-line" />
                   )}
                 </div>
                 <span className="mt-1 text-[11px] text-muted">{weekday(d.date)}</span>
-                <span className="text-[11px] tabular-nums text-ink-2">{d.entries ? fmtInt(d.net) : '–'}</span>
+                <span className="text-[11px] tabular-nums text-ink-2">{d.entries ? fmtInt(d.eaten) : '–'}</span>
               </li>
             )
           })}
@@ -75,11 +75,11 @@ function SmartTarget({ smart, target, unit, onUse }) {
     return (
       <div className="rounded-xl bg-page p-3 ring-1 ring-line">
         <p className="flex items-center gap-2 text-sm font-semibold">
-          <Target className="size-4 text-volt" aria-hidden /> Smart target: collecting data
+          <Target className="size-4 text-volt" aria-hidden /> Smart daily max: collecting data
         </p>
         <p className="mt-1 text-xs text-ink-2">
           Log your meals (2+ entries a day) and weigh in a few times a week. After about two weeks the app works out what you really burn and suggests a
-          target.
+          daily max.
         </p>
         <ul className="mt-2 space-y-0.5 text-xs">
           {steps.map(([text, ok]) => (
@@ -95,7 +95,7 @@ function SmartTarget({ smart, target, unit, onUse }) {
     return (
       <div className="rounded-xl bg-page p-3 text-xs text-ink-2 ring-1 ring-line">
         <p className="mb-1 flex items-center gap-2 text-sm font-semibold text-ink">
-          <Target className="size-4 text-volt" aria-hidden /> Smart target
+          <Target className="size-4 text-volt" aria-hidden /> Smart daily max
         </p>
         The numbers don’t add up yet (usually from days with missing meals). Keep logging every meal and it will settle.
       </div>
@@ -106,10 +106,10 @@ function SmartTarget({ smart, target, unit, onUse }) {
   return (
     <div className="rounded-xl bg-volt-soft p-3 ring-1 ring-volt/25">
       <p className="flex items-center gap-2 text-sm font-semibold">
-        <Target className="size-4 text-volt" aria-hidden /> Smart target
+        <Target className="size-4 text-volt" aria-hidden /> Smart daily max
       </p>
       <p className="mt-1 text-xs text-ink-2">
-        Over the last 3 weeks you averaged <b className="text-ink">{fmtInt(smart.avgNet)}</b> kcal net and your weight moved{' '}
+        Over the last 3 weeks you ate <b className="text-ink">{fmtInt(smart.avgEaten)}</b> kcal a day on average and your weight moved{' '}
         <b className="text-ink">
           {smart.rateKgWeek <= 0 ? '−' : '+'}
           {fmt1(fromKg(Math.abs(smart.rateKgWeek), unit))} {unit}/week
@@ -118,11 +118,11 @@ function SmartTarget({ smart, target, unit, onUse }) {
       </p>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm">
-          Suggested: <span className="font-display text-3xl font-bold text-volt">{fmtInt(smart.suggested)}</span> kcal
+          Suggested max: <span className="font-display text-3xl font-bold text-volt">{fmtInt(smart.suggested)}</span> kcal
           <span className="text-xs text-muted"> ≈ {fmt1(rate)} {unit}/week loss</span>
         </p>
         {same ? (
-          <span className="text-xs text-good-ink">Your target already matches.</span>
+          <span className="text-xs text-good-ink">Your daily max already matches.</span>
         ) : (
           <Button className="py-1.5" onClick={() => onUse(smart.suggested)}>
             Use {fmtInt(smart.suggested)}
@@ -139,7 +139,7 @@ export default function WeeklyCheckIn({ week, previousWeek, weights, unit, targe
   const [summary, setSummary] = useState({ status: 'idle' })
 
   const logged = week.filter((d) => d.logged)
-  const onTarget = logged.filter((d) => d.net <= target).length
+  const onTarget = logged.filter((d) => d.eaten <= target).length
   const proteinDays = logged.filter((d) => d.protein >= proteinTarget * 0.9).length
   const burned = week.reduce((s, d) => s + d.burned, 0)
   const weekWaters = week.map((d) => water.find((w) => w.date === d.date)?.glasses ?? 0)
@@ -153,23 +153,22 @@ export default function WeeklyCheckIn({ week, previousWeek, weights, unit, targe
   const stats = {
     daysLogged: logged.length,
     avgEaten: Math.round(avg(logged, (d) => d.eaten) ?? 0),
-    avgNet: Math.round(avg(logged, (d) => d.net) ?? 0),
-    target,
-    daysAtOrUnderTarget: onTarget,
+    dailyMax: target,
+    daysAtOrUnderMax: onTarget,
     avgProtein: Math.round(avg(logged, (d) => d.protein) ?? 0),
     proteinTarget,
     daysHitProtein: proteinDays,
     cardioKcal: burned,
     weightChangeVsLastWeek: change == null ? null : `${change > 0 ? '+' : ''}${change.toFixed(1)} ${unit}`,
     avgWaterGlasses: avgWater == null ? null : Math.round(avgWater * 10) / 10,
-    days: week.map((d) => ({ day: weekday(d.date), eaten: d.eaten, burned: d.burned, net: d.net, protein: Math.round(d.protein), logged: d.logged })),
+    days: week.map((d) => ({ day: weekday(d.date), eaten: d.eaten, burned: d.burned, protein: Math.round(d.protein), logged: d.logged })),
   }
 
   async function summarize() {
     setSummary({ status: 'working' })
     try {
       const text = await askClaude(
-        `You're a supportive coach for a high-school student in India on a gentle fat-loss cut. Here is their last 7 days from their tracker as JSON (net = eaten minus logged exercise):\n${JSON.stringify(stats)}\n\nWrite a short weekly check-in: 3–4 bullet points, plain text starting each with "• ". Mention one thing that went well, the clearest pattern (e.g. which days go over), and one specific, doable tip for next week. If intake looks very low or weight is dropping more than 1% a week, say to eat more. Under 90 words, no headings.`,
+        `You're a supportive coach for a high-school student in India on a gentle fat-loss cut. Their daily calorie max is for food eaten; exercise does not add to it. Here is their last 7 days from their tracker as JSON:\n${JSON.stringify(stats)}\n\nWrite a short weekly check-in: 3–4 bullet points, plain text starting each with "• ". Mention one thing that went well, the clearest pattern (e.g. which days go over), and one specific, doable tip for next week. If intake looks very low or weight is dropping more than 1% a week, say to eat more. Under 90 words, no headings.`,
       )
       setSummary({ status: 'done', text })
     } catch (err) {
@@ -181,8 +180,8 @@ export default function WeeklyCheckIn({ week, previousWeek, weights, unit, targe
     <Card id="week">
       <CardHeader icon={CalendarCheck} title="Weekly check-in" subtitle="Last 7 days, today included" />
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Stat label="Avg net" value={logged.length ? `${fmtInt(stats.avgNet)} kcal` : '–'} sub={`${logged.length}/7 days logged`} />
-        <Stat label="On target" value={logged.length ? `${onTarget}/${logged.length} days` : '–'} sub={`target ${fmtInt(target)}`} />
+        <Stat label="Avg eaten" value={logged.length ? `${fmtInt(stats.avgEaten)} kcal` : '–'} sub={`${logged.length}/7 days logged`} />
+        <Stat label="Under max" value={logged.length ? `${onTarget}/${logged.length} days` : '–'} sub={`max ${fmtInt(target)}`} />
         <Stat label="Avg protein" value={logged.length ? `${stats.avgProtein} g` : '–'} sub={`goal hit ${proteinDays}/${logged.length || 0} days`} />
         <Stat
           label="Weight vs last wk"

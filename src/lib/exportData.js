@@ -169,8 +169,8 @@ export function trackerSheets({ meals, exercises, weights, water, settings }) {
     {
       name: 'Daily totals',
       rows: [
-        ['Date', 'Eaten (kcal)', 'Burned (kcal)', 'Net (kcal)', 'Target (kcal)', 'Protein (g)', 'Entries'],
-        ...days.map((d) => [d.date, d.eaten, d.burned, d.net, settings.targetKcal, r1(d.protein), d.entries]),
+        ['Date', 'Eaten (kcal)', 'Daily max (kcal)', 'Left / over (kcal)', 'Burned (kcal)', 'Protein (g)', 'Entries'],
+        ...days.map((d) => [d.date, d.eaten, settings.targetKcal, settings.targetKcal - d.eaten, d.burned, r1(d.protein), d.entries]),
       ],
     },
     {

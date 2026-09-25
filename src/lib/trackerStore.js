@@ -13,7 +13,7 @@ import { addDays } from './dates.js'
 import { makeId } from './id.js'
 import { STORAGE_KEYS, usePersistentState } from './storage.js'
 
-export const DEFAULT_SETTINGS = { targetKcal: 2000, proteinTarget: 150, waterGoal: 8, weightUnit: 'lb', distanceUnit: 'mi' }
+export const DEFAULT_SETTINGS = { targetKcal: 2200, proteinTarget: 150, waterGoal: 8, weightUnit: 'lb', distanceUnit: 'mi' }
 
 /** How far back the weekly check-in and smart target look. */
 export const HISTORY_DAYS = 42
@@ -88,6 +88,7 @@ const EMPTY = {
   savedMeals: [],
   menus: [],
   settings: DEFAULT_SETTINGS,
+  settingsLoaded: false,
   ready: false,
 }
 
@@ -124,7 +125,7 @@ function useCloudData(backend, date, today) {
     const fail = (err) => setError(describeError(err))
     const unsubs = [
       refs.weights.onSnapshot((s) => setState((st) => ({ ...st, weights: fromSnap(s), ready: true })), fail),
-      refs.settings.onSnapshot((s) => setState((st) => ({ ...st, settings: { ...DEFAULT_SETTINGS, ...(s.exists ? s.data() : {}) } })), fail),
+      refs.settings.onSnapshot((s) => setState((st) => ({ ...st, settings: { ...DEFAULT_SETTINGS, ...(s.exists ? s.data() : {}) }, settingsLoaded: true })), fail),
       refs.meals.orderBy('createdAt', 'desc').limit(60).onSnapshot(put('recentMeals'), fail),
       refs.water.onSnapshot(put('water'), fail),
       refs.savedMeals.onSnapshot(put('savedMeals'), fail),
@@ -276,7 +277,7 @@ function useLocalData(date, today) {
     },
   }
 
-  return { ...derived, weights, water, savedMeals, menus, settings, actions, ready: true, error: null, clearError: () => {} }
+  return { ...derived, weights, water, savedMeals, menus, settings, settingsLoaded: true, actions, ready: true, error: null, clearError: () => {} }
 }
 
 /**

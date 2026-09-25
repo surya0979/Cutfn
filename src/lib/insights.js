@@ -32,7 +32,7 @@ export function dailyTotals({ meals, exercises, weights, from, to }) {
   }
   return days.map((d) => {
     const day = byDate[d]
-    return { ...day, burned: Math.round(day.burned), net: Math.round(day.eaten - day.burned), logged: day.entries >= MIN_ENTRIES }
+    return { ...day, burned: Math.round(day.burned), logged: day.entries >= MIN_ENTRIES }
   })
 }
 
@@ -40,9 +40,9 @@ const round50 = (n) => Math.round(n / 50) * 50
 
 /**
  * Estimate maintenance calories from what was eaten and how weight moved,
- * then suggest a target for losing about 0.5% of body weight a week.
- * Uses net calories (eaten − logged exercise), so the suggestion slots
- * straight into the app's Net = Eaten − Burned target.
+ * then suggest a daily max for losing about 0.5% of body weight a week.
+ * Uses calories eaten: the daily max caps intake, and exercise is already
+ * reflected in how the weight moved.
  */
 export function smartTarget({ days, weights, today }) {
   const windowStart = addDays(today, -21)
@@ -54,9 +54,9 @@ export function smartTarget({ days, weights, today }) {
 
   if (logged.length < 10 || recentWeights.length < 4 || span < 10) return { status: 'collecting', ...progress }
 
-  const avgNet = logged.reduce((s, d) => s + d.net, 0) / logged.length
+  const avgEaten = logged.reduce((s, d) => s + d.eaten, 0) / logged.length
   const rateKgWeek = weeklyRateKg(recentWeights)
-  const maintenance = avgNet - (rateKgWeek / 7) * KCAL_PER_KG
+  const maintenance = avgEaten - (rateKgWeek / 7) * KCAL_PER_KG
   const latestKg = recentWeights.at(-1).kg
   const deficit = Math.min((0.005 * latestKg * KCAL_PER_KG) / 7, 500)
   const suggested = Math.max(MIN_TARGET, round50(maintenance - deficit))
@@ -65,7 +65,7 @@ export function smartTarget({ days, weights, today }) {
   return {
     status: plausible ? 'ready' : 'unclear',
     ...progress,
-    avgNet: Math.round(avgNet),
+    avgEaten: Math.round(avgEaten),
     rateKgWeek,
     maintenance: round50(maintenance),
     suggested,
@@ -93,7 +93,7 @@ export function guardrails({ days, weights, today, targetKcal }) {
     warnings.push({ level: 'warning', id: 'low-intake', title: 'Several very low-calorie days', body: `You ate under 1,500 kcal on ${low.length} of the last 7 days. If that’s accurate, eat more: a growing teenager needs the fuel. If you forgot to log some meals, you can ignore this.` })
   }
   if (targetKcal < MIN_TARGET) {
-    warnings.push({ level: 'warning', id: 'low-target', title: 'Your calorie target is very low', body: `Targets under ${MIN_TARGET.toLocaleString()} kcal are too low for most growing teenagers. Consider raising it.` })
+    warnings.push({ level: 'warning', id: 'low-target', title: 'Your daily max is very low', body: `A daily max under ${MIN_TARGET.toLocaleString()} kcal is too low for most growing teenagers. Consider raising it.` })
   }
   return warnings
 }
