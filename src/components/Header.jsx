@@ -9,7 +9,7 @@ export const TABS = [
 ]
 
 /** Which tab holds each card, for in-page links like #weight. */
-export const TAB_OF = { today: 'home', menu: 'home', food: 'food', cardio: 'train', weight: 'progress', week: 'progress' }
+export const TAB_OF = { today: 'home', menu: 'home', food: 'food', cardio: 'train', weight: 'progress', week: 'progress', plan: 'progress' }
 
 function TabButtons({ tab, onTabChange, variant }) {
   const bottom = variant === 'bottom'

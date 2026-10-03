@@ -10,6 +10,7 @@ import { kmToMi } from './units.js'
 import { exerciseBurn } from './exercise.js'
 import { resolveBodyWeight } from './weight.js'
 import { toDateKey } from './dates.js'
+import { effectiveTarget } from './plan.js'
 
 // ── zip (store method) ────────────────────────────────────────────
 const CRC_TABLE = (() => {
@@ -169,8 +170,11 @@ export function trackerSheets({ meals, exercises, weights, water, settings }) {
     {
       name: 'Daily totals',
       rows: [
-        ['Date', 'Eaten (kcal)', 'Daily max (kcal)', 'Left / over (kcal)', 'Burned (kcal)', 'Protein (g)', 'Entries'],
-        ...days.map((d) => [d.date, d.eaten, settings.targetKcal, settings.targetKcal - d.eaten, d.burned, r1(d.protein), d.entries]),
+        ['Date', 'Eaten (kcal)', 'Daily max / goal (kcal)', 'Left / over (kcal)', 'Burned (kcal)', 'Protein (g)', 'Entries'],
+        ...days.map((d) => {
+          const target = effectiveTarget(settings, d.date, weights)
+          return [d.date, d.eaten, target, target - d.eaten, d.burned, r1(d.protein), d.entries]
+        }),
       ],
     },
     {

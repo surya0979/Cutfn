@@ -40,11 +40,12 @@ const round50 = (n) => Math.round(n / 50) * 50
 
 /**
  * Estimate maintenance calories from what was eaten and how weight moved,
- * then suggest a daily max for losing about 0.5% of body weight a week.
- * Uses calories eaten: the daily max caps intake, and exercise is already
- * reflected in how the weight moved.
+ * then suggest a daily number: on a cut, a max for losing about 0.5% of
+ * body weight a week; on a bulk, a goal for gaining about 0.25% a week
+ * (a lean bulk). Uses calories eaten; exercise is already reflected in
+ * how the weight moved.
  */
-export function smartTarget({ days, weights, today }) {
+export function smartTarget({ days, weights, today, mode = 'cut' }) {
   const windowStart = addDays(today, -21)
   const window = days.filter((d) => d.date >= windowStart && d.date < today)
   const logged = window.filter((d) => d.logged)
@@ -58,30 +59,37 @@ export function smartTarget({ days, weights, today }) {
   const rateKgWeek = weeklyRateKg(recentWeights)
   const maintenance = avgEaten - (rateKgWeek / 7) * KCAL_PER_KG
   const latestKg = recentWeights.at(-1).kg
+  const bulk = mode === 'bulk'
   const deficit = Math.min((0.005 * latestKg * KCAL_PER_KG) / 7, 500)
-  const suggested = Math.max(MIN_TARGET, round50(maintenance - deficit))
+  const surplus = Math.min((0.0025 * latestKg * KCAL_PER_KG) / 7, 350)
+  const suggested = bulk ? round50(maintenance + surplus) : Math.max(MIN_TARGET, round50(maintenance - deficit))
   const plausible = maintenance > 1200 && maintenance < 5000
 
   return {
     status: plausible ? 'ready' : 'unclear',
+    mode: bulk ? 'bulk' : 'cut',
     ...progress,
     avgEaten: Math.round(avgEaten),
     rateKgWeek,
     maintenance: round50(maintenance),
     suggested,
     expectedLossKgWeek: ((maintenance - suggested) * 7) / KCAL_PER_KG,
-    floored: suggested === MIN_TARGET && maintenance - deficit < MIN_TARGET,
+    floored: !bulk && suggested === MIN_TARGET && maintenance - deficit < MIN_TARGET,
   }
 }
 
-/** Warnings when the cut is getting too aggressive. Most severe first. */
-export function guardrails({ days, weights, today, targetKcal }) {
+/** Warnings when the cut (or bulk) is getting too aggressive. Most severe first. */
+export function guardrails({ days, weights, today, targetKcal, mode = 'cut' }) {
   const warnings = []
   const recent = sortByDate(weights).filter((w) => w.date >= addDays(today, -21))
   if (recent.length >= 3 && daysBetween(recent[0].date, recent.at(-1).date) >= 7) {
     const rate = weeklyRateKg(recent)
     const pct = (-rate / recent.at(-1).kg) * 100
-    if (pct > 1) {
+    if (mode === 'bulk' && -pct > 1) {
+      warnings.push({ level: 'warning', id: 'fast-gain', pct: -pct, rate, title: 'You’re gaining weight fast', body: `About ${(-pct).toFixed(1)}% of your body weight a week. Past about 0.5% a week, most of the extra is fat. Your bulk plan pauses its increases; consider eating a little less.` })
+    } else if (mode === 'bulk' && pct > 0.25) {
+      warnings.push({ level: 'warning', id: 'bulk-loss', pct, rate, title: 'You’re losing weight on a bulk', body: `About ${pct.toFixed(1)}% of your body weight a week. To gain, eat up to your daily goal or raise it.` })
+    } else if (pct > 1) {
       warnings.push({ level: 'critical', id: 'fast-loss', pct, rate, title: 'You’re losing weight too fast', body: `About ${pct.toFixed(1)}% of your body weight a week. More than 1% a week at your age risks losing muscle, energy and growth. Eat about 250–300 kcal more a day.` })
     } else if (pct > 0.75) {
       warnings.push({ level: 'warning', id: 'quick-loss', pct, rate, title: 'Weight is dropping quickly', body: `About ${pct.toFixed(1)}% of your body weight a week. That’s at the upper limit; don’t cut calories further.` })
@@ -93,7 +101,7 @@ export function guardrails({ days, weights, today, targetKcal }) {
     warnings.push({ level: 'warning', id: 'low-intake', title: 'Several very low-calorie days', body: `You ate under 1,500 kcal on ${low.length} of the last 7 days. If that’s accurate, eat more: a growing teenager needs the fuel. If you forgot to log some meals, you can ignore this.` })
   }
   if (targetKcal < MIN_TARGET) {
-    warnings.push({ level: 'warning', id: 'low-target', title: 'Your daily max is very low', body: `A daily max under ${MIN_TARGET.toLocaleString()} kcal is too low for most growing teenagers. Consider raising it.` })
+    warnings.push({ level: 'warning', id: 'low-target', title: 'Your daily calories are set very low', body: `Under ${MIN_TARGET.toLocaleString()} kcal a day is too low for most growing teenagers. Consider raising it.` })
   }
   return warnings
 }

@@ -2,13 +2,14 @@ import { COLORS } from '../lib/theme.js'
 import { fmtInt } from '../lib/units.js'
 
 /** Progress ring for calories eaten against the daily max. */
-export default function CalorieRing({ eaten, target }) {
+export default function CalorieRing({ eaten, target, goal = false }) {
   const size = 208
   const stroke = 16
   const r = (size - stroke) / 2
   const circumference = 2 * Math.PI * r
   const ratio = target > 0 ? Math.max(0, eaten) / target : 0
-  const over = eaten > target
+  // Going past a bulk goal is fine; only a cut's max turns red.
+  const over = !goal && eaten > target
   const shown = Math.min(ratio, 1)
   const pct = Math.round(ratio * 100)
 
@@ -18,7 +19,7 @@ export default function CalorieRing({ eaten, target }) {
         viewBox={`0 0 ${size} ${size}`}
         className="size-full -rotate-90"
         role="img"
-        aria-label={`Eaten ${fmtInt(eaten)} of ${fmtInt(target)} kilocalorie daily max, ${pct}%`}
+        aria-label={`Eaten ${fmtInt(eaten)} of ${fmtInt(target)} kilocalorie daily ${goal ? 'goal' : 'max'}, ${pct}%`}
       >
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={COLORS.line} strokeWidth={stroke} />
         <circle
@@ -42,7 +43,7 @@ export default function CalorieRing({ eaten, target }) {
         <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Eaten</span>
         <span className="font-display text-6xl font-bold leading-none tracking-tight">{fmtInt(eaten)}</span>
         <span className="mt-0.5 text-xs text-ink-2">
-          of {fmtInt(target)} max · {pct}%
+          of {fmtInt(target)} {goal ? 'goal' : 'max'} · {pct}%
         </span>
       </div>
     </div>

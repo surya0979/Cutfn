@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import CardioLog from './components/CardioLog.jsx'
 import DataCard from './components/DataCard.jsx'
+import PlanCard from './components/PlanCard.jsx'
 import Dashboard, { Guardrails } from './components/Dashboard.jsx'
 import Header, { BottomNav, TAB_OF } from './components/Header.jsx'
 import LogMeal from './components/LogMeal.jsx'
@@ -13,6 +14,7 @@ import { addDays, formatDay } from './lib/dates.js'
 import { exerciseBurn } from './lib/exercise.js'
 import { makeId } from './lib/id.js'
 import { dailyTotals, guardrails, proteinIdeas, smartTarget } from './lib/insights.js'
+import { effectiveTarget, planState } from './lib/plan.js'
 import { sectionForTime, sectionOf } from './lib/sections.js'
 import { HISTORY_DAYS, useTrackerData } from './lib/trackerStore.js'
 import { menuFoods, menuForDate } from './lib/weeklyMenu.js'
@@ -132,8 +134,20 @@ export default function App() {
     () => dailyTotals({ meals: historyMeals, exercises: historyExercises, weights, from: addDays(today, -HISTORY_DAYS), to: today }),
     [historyMeals, historyExercises, weights, today],
   )
-  const smart = useMemo(() => smartTarget({ days, weights, today }), [days, weights, today])
-  const warnings = useMemo(() => guardrails({ days, weights, today, targetKcal: settings.targetKcal }), [days, weights, today, settings.targetKcal])
+  // A running cut/bulk plan sets the day's number; otherwise the fixed max does.
+  const planNow = useMemo(() => planState(settings.plan, date, weights), [settings.plan, date, weights])
+  const planToday = useMemo(() => planState(settings.plan, today, weights), [settings.plan, today, weights])
+  const target = planNow?.kcal ?? settings.targetKcal
+  const targetFor = useCallback((d) => effectiveTarget(settings, d, weights), [settings, weights])
+  const goalMode = planToday?.mode ?? 'cut'
+  const smart = useMemo(() => smartTarget({ days, weights, today, mode: goalMode }), [days, weights, today, goalMode])
+  const warnings = useMemo(
+    () => guardrails({ days, weights, today, targetKcal: planToday?.kcal ?? settings.targetKcal, mode: goalMode }),
+    [days, weights, today, planToday, settings.targetKcal, goalMode],
+  )
+  const startPlan = (p) => updateSettings({ plan: { ...p, startDate: today } })
+  // Stopping keeps today's number as the fixed max, so nothing jumps.
+  const stopPlan = () => updateSettings({ plan: null, targetKcal: planToday?.kcal ?? settings.targetKcal })
 
   const menuToday = useMemo(() => menuForDate(menus, date), [menus, date])
   const ideas = useMemo(() => proteinIdeas(menuToday ? menuFoods(menuToday.entries).foods.map((f) => f.food) : []), [menuToday])
@@ -223,8 +237,10 @@ export default function App() {
             <Dashboard
               consumed={totals.consumed}
               burned={totals.burned}
-              target={settings.targetKcal}
+              target={target}
               onTargetChange={(targetKcal) => updateSettings({ targetKcal })}
+              planNow={planNow}
+              onOpenPlan={() => setTab('progress', 'plan')}
               proteinTarget={settings.proteinTarget ?? 150}
               onProteinTargetChange={(proteinTarget) => updateSettings({ proteinTarget })}
               macros={totals.macros}
@@ -287,6 +303,7 @@ export default function App() {
 
         {tab === 'progress' && (
           <>
+            <PlanCard plan={settings.plan} planNow={planToday} fixedKcal={settings.targetKcal} smart={smart} onStart={startPlan} onStop={stopPlan} />
             <WeightSection
               weights={weights}
               unit={settings.weightUnit}
@@ -301,12 +318,23 @@ export default function App() {
               previousWeek={days.slice(-14, -7)}
               weights={weights}
               unit={settings.weightUnit}
-              target={settings.targetKcal}
+              target={planToday?.kcal ?? settings.targetKcal}
+              targetFor={targetFor}
+              mode={goalMode}
+              planActive={Boolean(planToday)}
               proteinTarget={settings.proteinTarget}
               water={water}
               waterGoal={settings.waterGoal}
               smart={smart}
-              onUseTarget={(targetKcal) => updateSettings({ targetKcal })}
+              onUseTarget={(kcal) =>
+                planToday
+                  ? startPlan({
+                      ...settings.plan,
+                      startKcal: kcal,
+                      limit: planToday.mode === 'cut' ? Math.min(planToday.limit, kcal) : Math.max(planToday.limit, kcal),
+                    })
+                  : updateSettings({ targetKcal: kcal })
+              }
             />
             <DataCard loadAll={actions.loadAll} restore={actions.restore} />
           </>

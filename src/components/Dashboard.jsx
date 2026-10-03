@@ -1,4 +1,5 @@
-import { Beef, CircleAlert, Droplet, Flame, Minus, Pencil, Plus, ShieldAlert, TriangleAlert } from 'lucide-react'
+import { Beef, ChevronRight, CircleAlert, Droplet, Flame, Minus, Pencil, Plus, ShieldAlert, TrendingDown, TrendingUp, TriangleAlert } from 'lucide-react'
+import { formatShortDate } from '../lib/dates.js'
 import { useState } from 'react'
 import { COLORS } from '../lib/theme.js'
 import { fmtInt } from '../lib/units.js'
@@ -211,15 +212,19 @@ function WaterTracker({ glasses, goal, onChange }) {
   )
 }
 
-export default function Dashboard({ consumed, burned, target, onTargetChange, proteinTarget, onProteinTargetChange, macros, dayLabel, proteinIdeas, onAddFood, water }) {
-  // The daily max caps calories eaten. Exercise is shown but never adds to it.
+export default function Dashboard({ consumed, burned, target, onTargetChange, proteinTarget, onProteinTargetChange, macros, dayLabel, proteinIdeas, onAddFood, water, planNow, onOpenPlan }) {
+  // The daily number caps calories eaten on a cut (a max) and is a goal to
+  // reach on a bulk. Exercise is shown but never changes it.
+  const bulk = planNow?.mode === 'bulk'
   const remaining = target - consumed
   const over = remaining < 0
+  const alarm = over && !bulk
+  const PlanIcon = bulk ? TrendingUp : TrendingDown
 
   return (
     <Card id="today" aria-label={`${dayLabel} summary`}>
       <div className="flex flex-col items-center gap-6 md:flex-row md:items-stretch">
-        <CalorieRing eaten={consumed} target={target} />
+        <CalorieRing eaten={consumed} target={target} goal={bulk} />
 
         <div className="flex w-full min-w-0 flex-1 flex-col gap-4">
           <div>
@@ -227,17 +232,24 @@ export default function Dashboard({ consumed, burned, target, onTargetChange, pr
             <div className="mt-2 grid grid-cols-3 gap-1.5 sm:gap-2 [&>div]:min-w-0 [&>div]:px-2.5 sm:[&>div]:px-3">
               <div className="rounded-xl bg-page px-3 py-2.5 ring-1 ring-line">
                 <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
-                  <Swatch color={COLORS.eat} /> Max
+                  <Swatch color={COLORS.eat} /> {bulk ? 'Goal' : 'Max'}
                 </div>
-                <TargetEditor target={target} onChange={onTargetChange} />
+                {planNow ? (
+                  <button type="button" onClick={onOpenPlan} className="group inline-flex items-center gap-1 py-1 text-left" aria-label={`${bulk ? 'Daily goal' : 'Daily max'} ${target} kcal, set by your ${planNow.label.toLowerCase()} plan. Open plan`}>
+                    <span className="font-display text-2xl font-bold leading-none tracking-tight group-hover:text-volt sm:text-3xl">{fmtInt(target)}</span>
+                    <PlanIcon className="size-3.5 text-muted group-hover:text-volt" aria-hidden />
+                  </button>
+                ) : (
+                  <TargetEditor target={target} onChange={onTargetChange} />
+                )}
               </div>
-              <div className={`rounded-xl px-3 py-2.5 ring-1 ${over ? 'bg-critical/10 ring-critical/40' : 'bg-volt-soft ring-volt/25'}`}>
+              <div className={`rounded-xl px-3 py-2.5 ring-1 ${alarm ? 'bg-critical/10 ring-critical/40' : 'bg-volt-soft ring-volt/25'}`}>
                 <div className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
-                  {over && <CircleAlert className="size-3.5 text-critical-ink" aria-hidden />}
-                  {over ? 'Over' : 'Left'}
+                  {alarm && <CircleAlert className="size-3.5 text-critical-ink" aria-hidden />}
+                  {bulk ? (over ? 'Above' : 'To go') : over ? 'Over' : 'Left'}
                 </div>
                 <div className="py-1">
-                  <span className={`font-display text-2xl font-bold leading-none tracking-tight sm:text-3xl ${over ? 'text-critical-ink' : 'text-volt'}`}>{fmtInt(Math.abs(remaining))}</span>
+                  <span className={`font-display text-2xl font-bold leading-none tracking-tight sm:text-3xl ${alarm ? 'text-critical-ink' : 'text-volt'}`}>{fmtInt(Math.abs(remaining))}</span>
                   <span className="ml-1 hidden text-xs text-muted sm:inline">kcal</span>
                 </div>
               </div>
@@ -251,7 +263,31 @@ export default function Dashboard({ consumed, burned, target, onTargetChange, pr
                 </div>
               </div>
             </div>
-            <p className="mt-1.5 text-xs text-muted">Daily max and calories left, in kcal. Burned calories are shown for your info and don’t raise your max.</p>
+            <p className="mt-1.5 text-xs text-muted">
+              {bulk ? 'Daily goal and calories to go' : 'Daily max and calories left'}, in kcal. Burned calories are shown for your info and don’t change it.
+            </p>
+            <button
+              type="button"
+              onClick={onOpenPlan}
+              className="mt-2 flex w-full items-center gap-2 rounded-xl bg-page px-3 py-2 text-left text-xs ring-1 ring-line hover:ring-volt/40"
+            >
+              <PlanIcon className={`size-4 shrink-0 ${planNow ? 'text-volt' : 'text-muted'}`} aria-hidden />
+              <span className="min-w-0 flex-1 text-ink-2">
+                {!planNow ? (
+                  <>Fixed max. Start a cut or bulk plan to change it a little each week.</>
+                ) : planNow.atLimit ? (
+                  <>
+                    <b className="text-ink">{planNow.label} plan</b> · week {planNow.week} · holding at your {bulk ? 'ceiling' : 'floor'}
+                  </>
+                ) : (
+                  <>
+                    <b className="text-ink">{planNow.label} plan</b> · week {planNow.week} · {bulk ? 'rises' : 'drops'} to {fmtInt(planNow.nextKcal)} on{' '}
+                    {formatShortDate(planNow.nextDate)}
+                  </>
+                )}
+              </span>
+              <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />
+            </button>
           </div>
 
           <MacroBars {...macros} target={target} proteinTarget={proteinTarget} onProteinTargetChange={onProteinTargetChange} />

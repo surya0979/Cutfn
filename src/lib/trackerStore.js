@@ -13,7 +13,7 @@ import { addDays } from './dates.js'
 import { makeId } from './id.js'
 import { STORAGE_KEYS, usePersistentState } from './storage.js'
 
-export const DEFAULT_SETTINGS = { targetKcal: 2200, proteinTarget: 150, waterGoal: 8, weightUnit: 'lb', distanceUnit: 'mi' }
+export const DEFAULT_SETTINGS = { targetKcal: 2200, plan: null, proteinTarget: 150, waterGoal: 8, weightUnit: 'lb', distanceUnit: 'mi' }
 
 /** How far back the weekly check-in and smart target look. */
 export const HISTORY_DAYS = 42

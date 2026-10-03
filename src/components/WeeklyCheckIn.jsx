@@ -20,8 +20,8 @@ function Stat({ label, value, sub }) {
 }
 
 /** Seven columns of calories eaten against the daily max. */
-function WeekBars({ days, target }) {
-  const max = Math.max(target * 1.25, ...days.map((d) => d.eaten))
+function WeekBars({ days, target, targetFor, bulk }) {
+  const max = Math.max(target * 1.25, ...days.map((d) => d.eaten), ...days.map((d) => targetFor(d.date)))
   const h = 120
   const y = (v) => h - (Math.max(0, v) / max) * h
   return (
@@ -30,18 +30,20 @@ function WeekBars({ days, target }) {
         <span className="flex items-center gap-1.5">
           <Swatch color={COLORS.eat} /> Eaten
         </span>
+        {!bulk && (
+          <span className="flex items-center gap-1.5">
+            <Swatch color={COLORS.critical} /> Over max
+          </span>
+        )}
         <span className="flex items-center gap-1.5">
-          <Swatch color={COLORS.critical} /> Over max
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-0.5 w-3.5 rounded-full bg-volt" /> Max {fmtInt(target)}
+          <span className="h-0.5 w-3.5 rounded-full bg-volt" /> {bulk ? 'Goal' : 'Max'} {fmtInt(target)}
         </span>
       </div>
       <div className="relative" style={{ height: h + 36 }}>
         <div className="absolute inset-x-0 border-t border-volt/70" style={{ top: y(target) }} aria-hidden />
         <ol className="absolute inset-0 grid grid-cols-7 gap-1.5">
           {days.map((d) => {
-            const over = d.logged && d.eaten > target
+            const over = !bulk && d.logged && d.eaten > targetFor(d.date)
             return (
               <li key={d.date} className="flex flex-col items-center" title={`${weekday(d.date)}: ${d.entries ? `${fmtInt(d.eaten)} kcal eaten` : 'not logged'}`}>
                 <div className="relative w-full" style={{ height: h }}>
@@ -65,7 +67,7 @@ function WeekBars({ days, target }) {
   )
 }
 
-function SmartTarget({ smart, target, unit, onUse }) {
+function SmartTarget({ smart, target, unit, onUse, planActive }) {
   if (smart.status === 'collecting') {
     const steps = [
       [`${Math.min(smart.loggedDays, smart.needDays)}/${smart.needDays} days fully logged`, smart.loggedDays >= smart.needDays],
@@ -75,11 +77,11 @@ function SmartTarget({ smart, target, unit, onUse }) {
     return (
       <div className="rounded-xl bg-page p-3 ring-1 ring-line">
         <p className="flex items-center gap-2 text-sm font-semibold">
-          <Target className="size-4 text-volt" aria-hidden /> Smart daily max: collecting data
+          <Target className="size-4 text-volt" aria-hidden /> Smart calories: collecting data
         </p>
         <p className="mt-1 text-xs text-ink-2">
           Log your meals (2+ entries a day) and weigh in a few times a week. After about two weeks the app works out what you really burn and suggests a
-          daily max.
+          daily number.
         </p>
         <ul className="mt-2 space-y-0.5 text-xs">
           {steps.map(([text, ok]) => (
@@ -102,11 +104,12 @@ function SmartTarget({ smart, target, unit, onUse }) {
     )
   }
   const same = Math.abs(smart.suggested - target) < 50
+  const bulk = smart.mode === 'bulk'
   const rate = fromKg(Math.abs(smart.expectedLossKgWeek), unit)
   return (
     <div className="rounded-xl bg-volt-soft p-3 ring-1 ring-volt/25">
       <p className="flex items-center gap-2 text-sm font-semibold">
-        <Target className="size-4 text-volt" aria-hidden /> Smart daily max
+        <Target className="size-4 text-volt" aria-hidden /> {bulk ? 'Smart daily goal' : 'Smart daily max'}
       </p>
       <p className="mt-1 text-xs text-ink-2">
         Over the last 3 weeks you ate <b className="text-ink">{fmtInt(smart.avgEaten)}</b> kcal a day on average and your weight moved{' '}
@@ -118,14 +121,14 @@ function SmartTarget({ smart, target, unit, onUse }) {
       </p>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm">
-          Suggested max: <span className="font-display text-3xl font-bold text-volt">{fmtInt(smart.suggested)}</span> kcal
-          <span className="text-xs text-muted"> ≈ {fmt1(rate)} {unit}/week loss</span>
+          Suggested {bulk ? 'goal' : 'max'}: <span className="font-display text-3xl font-bold text-volt">{fmtInt(smart.suggested)}</span> kcal
+          <span className="text-xs text-muted"> ≈ {fmt1(rate)} {unit}/week {bulk ? 'gain' : 'loss'}</span>
         </p>
         {same ? (
-          <span className="text-xs text-good-ink">Your daily max already matches.</span>
+          <span className="text-xs text-good-ink">Your {bulk ? 'daily goal' : 'daily max'} already matches.</span>
         ) : (
           <Button className="py-1.5" onClick={() => onUse(smart.suggested)}>
-            Use {fmtInt(smart.suggested)}
+            {planActive ? `Restart plan at ${fmtInt(smart.suggested)}` : `Use ${fmtInt(smart.suggested)}`}
           </Button>
         )}
       </div>
@@ -134,12 +137,14 @@ function SmartTarget({ smart, target, unit, onUse }) {
   )
 }
 
-export default function WeeklyCheckIn({ week, previousWeek, weights, unit, target, proteinTarget, water, waterGoal, smart, onUseTarget }) {
+export default function WeeklyCheckIn({ week, previousWeek, weights, unit, target, targetFor = () => target, mode = 'cut', planActive = false, proteinTarget, water, waterGoal, smart, onUseTarget }) {
+  const bulk = mode === 'bulk'
   const aiAvailable = useAiAvailable()
   const [summary, setSummary] = useState({ status: 'idle' })
 
   const logged = week.filter((d) => d.logged)
-  const onTarget = logged.filter((d) => d.eaten <= target).length
+  // A cut day counts when you stay at or under the max; a bulk day when you reach the goal (within 100 kcal).
+  const onTarget = logged.filter((d) => (bulk ? d.eaten >= targetFor(d.date) - 100 : d.eaten <= targetFor(d.date))).length
   const proteinDays = logged.filter((d) => d.protein >= proteinTarget * 0.9).length
   const burned = week.reduce((s, d) => s + d.burned, 0)
   const weekWaters = week.map((d) => water.find((w) => w.date === d.date)?.glasses ?? 0)
@@ -153,8 +158,9 @@ export default function WeeklyCheckIn({ week, previousWeek, weights, unit, targe
   const stats = {
     daysLogged: logged.length,
     avgEaten: Math.round(avg(logged, (d) => d.eaten) ?? 0),
-    dailyMax: target,
-    daysAtOrUnderMax: onTarget,
+    goal: bulk ? 'bulk (gain slowly)' : 'cut (lose fat)',
+    [bulk ? 'dailyGoal' : 'dailyMax']: target,
+    [bulk ? 'daysHitGoal' : 'daysAtOrUnderMax']: onTarget,
     avgProtein: Math.round(avg(logged, (d) => d.protein) ?? 0),
     proteinTarget,
     daysHitProtein: proteinDays,
@@ -168,7 +174,7 @@ export default function WeeklyCheckIn({ week, previousWeek, weights, unit, targe
     setSummary({ status: 'working' })
     try {
       const text = await askClaude(
-        `You're a supportive coach for a high-school student in India on a gentle fat-loss cut. Their daily calorie max is for food eaten; exercise does not add to it. Here is their last 7 days from their tracker as JSON:\n${JSON.stringify(stats)}\n\nWrite a short weekly check-in: 3–4 bullet points, plain text starting each with "• ". Mention one thing that went well, the clearest pattern (e.g. which days go over), and one specific, doable tip for next week. If intake looks very low or weight is dropping more than 1% a week, say to eat more. Under 90 words, no headings.`,
+        `You're a supportive coach for a high-school student in India on a ${bulk ? 'lean bulk (gaining slowly to build muscle). Their daily calorie goal is a target to reach' : 'gentle fat-loss cut. Their daily calorie max is for food eaten'}; exercise does not change it. Here is their last 7 days from their tracker as JSON:\n${JSON.stringify(stats)}\n\nWrite a short weekly check-in: 3–4 bullet points, plain text starting each with "• ". Mention one thing that went well, the clearest pattern (e.g. which days ${bulk ? 'fall short' : 'go over'}), and one specific, doable tip for next week. ${bulk ? 'If weight is rising more than 0.5% a week, suggest easing off; if it is not rising, suggest eating more.' : 'If intake looks very low or weight is dropping more than 1% a week, say to eat more.'} Under 90 words, no headings.`,
       )
       setSummary({ status: 'done', text })
     } catch (err) {
@@ -181,7 +187,7 @@ export default function WeeklyCheckIn({ week, previousWeek, weights, unit, targe
       <CardHeader icon={CalendarCheck} title="Weekly check-in" subtitle="Last 7 days, today included" />
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Stat label="Avg eaten" value={logged.length ? `${fmtInt(stats.avgEaten)} kcal` : '–'} sub={`${logged.length}/7 days logged`} />
-        <Stat label="Under max" value={logged.length ? `${onTarget}/${logged.length} days` : '–'} sub={`max ${fmtInt(target)}`} />
+        <Stat label={bulk ? 'Hit goal' : 'Under max'} value={logged.length ? `${onTarget}/${logged.length} days` : '–'} sub={`${bulk ? 'goal' : 'max'} ${fmtInt(target)}`} />
         <Stat label="Avg protein" value={logged.length ? `${stats.avgProtein} g` : '–'} sub={`goal hit ${proteinDays}/${logged.length || 0} days`} />
         <Stat
           label="Weight vs last wk"
@@ -193,7 +199,7 @@ export default function WeeklyCheckIn({ week, previousWeek, weights, unit, targe
       </div>
 
       <div className="mt-5">
-        <WeekBars days={week} target={target} />
+        <WeekBars days={week} target={target} targetFor={targetFor} bulk={bulk} />
       </div>
 
       {aiAvailable && (
@@ -217,7 +223,7 @@ export default function WeeklyCheckIn({ week, previousWeek, weights, unit, targe
       )}
 
       <div className="mt-4">
-        <SmartTarget smart={smart} target={target} unit={unit} onUse={onUseTarget} />
+        <SmartTarget smart={smart} target={target} unit={unit} onUse={onUseTarget} planActive={planActive} />
       </div>
     </Card>
   )
