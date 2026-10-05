@@ -1,0 +1,229 @@
+@import 'tailwindcss';
+
+/*
+ * Layout: a dressing-room rail. The closet is a photo grid of pieces; outfits
+ * are laid out as flat-lays on a pressing board. Indigo for denim, one
+ * selvedge-red thread for the things you love.
+ */
+:root {
+  --page: #f4f5f9;
+  --surface: #ffffff;
+  --raised: #eceef5;
+  --board: #e6e8f0;
+  --line: #d9dce8;
+  --ink: #191c38;
+  --ink-2: #41466a;
+  --muted: #5f6485;
+  --accent: #2b3480;
+  --accent-ink: #2b3480;
+  --on-accent: #ffffff;
+  --selvedge: #d6453d;
+  --good: #1d7048;
+  --warn: #965400;
+  --critical: #b42318;
+  --scrim: rgb(14 16 36 / 0.45);
+  --shadow: 0 1px 2px rgb(25 28 56 / 0.06), 0 8px 24px -12px rgb(25 28 56 / 0.18);
+
+  --display: 'Bodoni Moda', 'Bodoni 72', Didot, 'Times New Roman', serif;
+  --sans: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --page: #0f1124;
+    --surface: #171a33;
+    --raised: #20243f;
+    --board: #1b1f3a;
+    --line: #2d3254;
+    --ink: #eef0fa;
+    --ink-2: #c5c9e0;
+    --muted: #9ea3c2;
+    --accent: #8f9bff;
+    --accent-ink: #aab3ff;
+    --on-accent: #0f1124;
+    --selvedge: #ff7d70;
+    --good: #5fd39a;
+    --warn: #f2b155;
+    --critical: #ff8f85;
+    --scrim: rgb(4 5 14 / 0.62);
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 28px -12px rgb(0 0 0 / 0.6);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --page: #0f1124;
+  --surface: #171a33;
+  --raised: #20243f;
+  --board: #1b1f3a;
+  --line: #2d3254;
+  --ink: #eef0fa;
+  --ink-2: #c5c9e0;
+  --muted: #9ea3c2;
+  --accent: #8f9bff;
+  --accent-ink: #aab3ff;
+  --on-accent: #0f1124;
+  --selvedge: #ff7d70;
+  --good: #5fd39a;
+  --warn: #f2b155;
+  --critical: #ff8f85;
+  --scrim: rgb(4 5 14 / 0.62);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 28px -12px rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-display: var(--display);
+  --font-sans: var(--sans);
+  --font-mono: var(--mono);
+
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-board: var(--board);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-on-accent: var(--on-accent);
+  --color-selvedge: var(--selvedge);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-critical: var(--critical);
+  --color-scrim: var(--scrim);
+
+  --shadow-card: var(--shadow);
+}
+
+/*
+ * Page base, deliberately outside @layer: claude.ai wraps the page in its own
+ * unlayered starter styles (light color-scheme, dark text on an off-white
+ * ground). Unlayered rules beat layered ones, so these must be unlayered too.
+ */
+html {
+  background: var(--page);
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: default;
+  }
+}
+
+/* Selvedge denim's finished edge: a white band with one red thread. Used once, under the header. */
+.selvedge {
+  height: 5px;
+  background: linear-gradient(
+    to bottom,
+    var(--surface) 0 1.5px,
+    var(--selvedge) 1.5px 3px,
+    var(--surface) 3px 100%
+  );
+  border-bottom: 1px solid var(--line);
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Care-label style: small mono caps. */
+.label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 220ms ease-out both;
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0.4;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.sheet-up {
+  animation: sheet-up 200ms ease-out both;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+.shimmer {
+  background: linear-gradient(90deg, transparent 0%, color-mix(in oklab, var(--surface) 55%, transparent) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
