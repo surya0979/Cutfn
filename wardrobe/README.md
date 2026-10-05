@@ -2,6 +2,8 @@
 
 Photograph your clothes, let Claude tag them, and get outfits picked from what you actually own.
 
+**Live app (synced):** https://claude.ai/artifact/6ep6wosqUgM9QgEu773gEf. Open it on your phone and laptop while signed in to claude.ai, and your closet syncs between them.
+
 A phone-first rebuild of [wardrowbe](https://github.com/anyesh/wardrowbe)'s ideas (AI tagging, weather- and occasion-aware outfit picks, wear and laundry tracking) as a single page that runs on claude.ai. There's no server to host. Claude does the tagging and styling on your own claude.ai account.
 
 ## Using it

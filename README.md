@@ -4,7 +4,7 @@ A fast, mobile-first tracker for a fitness cut: calories in, calories burned, an
 
 **Live app (synced):** https://claude.ai/artifact/LUgvhxH6m9a2TZQaLDmFir. Open it on your phone and laptop while signed into claude.ai and every entry syncs between them within seconds.
 
-**Also in this repo:** [Fitfn Wardrobe](wardrobe/README.md), a photo wardrobe where Claude tags your clothes and picks outfits from them. It lives in `wardrobe/` with its own `package.json`.
+**Also in this repo:** [Fitfn Wardrobe](wardrobe/README.md) ([live app](https://claude.ai/artifact/6ep6wosqUgM9QgEu773gEf)), a photo wardrobe where Claude tags your clothes and picks outfits from them. It lives in `wardrobe/` with its own `package.json`.
 
 ## Sync and storage
 
