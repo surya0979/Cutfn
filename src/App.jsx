@@ -17,6 +17,7 @@ import { dailyTotals, guardrails, proteinIdeas, smartTarget } from './lib/insigh
 import { effectiveTarget, planState } from './lib/plan.js'
 import { sectionForTime, sectionOf } from './lib/sections.js'
 import { HISTORY_DAYS, useTrackerData } from './lib/trackerStore.js'
+import { withSchoolMenus } from './lib/schoolMenus.js'
 import { menuFoods, menuForDate } from './lib/weeklyMenu.js'
 import { useToday } from './lib/useToday.js'
 import { fmtInt } from './lib/units.js'
@@ -149,7 +150,8 @@ export default function App() {
   // Stopping keeps today's number as the fixed max, so nothing jumps.
   const stopPlan = () => updateSettings({ plan: null, targetKcal: planToday?.kcal ?? settings.targetKcal })
 
-  const menuToday = useMemo(() => menuForDate(menus, date), [menus, date])
+  const allMenus = useMemo(() => withSchoolMenus(menus), [menus])
+  const menuToday = useMemo(() => menuForDate(allMenus, date), [allMenus, date])
   const ideas = useMemo(() => proteinIdeas(menuToday ? menuFoods(menuToday.entries).foods.map((f) => f.food) : []), [menuToday])
 
   const comboKey = (items) =>
@@ -253,7 +255,7 @@ export default function App() {
               <TodayMenu
                 date={date}
                 today={today}
-                menus={menus}
+                menus={allMenus}
                 onSaveMenus={actions.saveMenus}
                 onDeleteMenu={actions.deleteMenu}
                 onAdd={addMeal}

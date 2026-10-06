@@ -22,7 +22,8 @@ const STOP = new Set(
   nutrition calories cal kcal oz ounce ounces cup cups each per assorted fresh hot cold featuring
   special option options main dish station grab go new homemade daily plus your pick one two
   cyclic guidelines conti accompaniments snacks morning beverage lentil inter national international dutch year
-  allergic colour color code peanut sesame gluten gelatine dairy nuts veg for to products`.split(/\s+/),
+  allergic colour color code peanut sesame gluten gelatine dairy nuts veg for to products
+  whole wheat eggless mini style`.split(/\s+/),
 )
 
 export function normalize(text) {

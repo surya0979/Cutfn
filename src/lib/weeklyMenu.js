@@ -79,8 +79,10 @@ export function parseWeeklyMenu(cells, fallbackWeekStart) {
 }
 
 /**
- * The menu for a date. Uses the week uploaded for that date; otherwise, when
- * the uploaded weeks are consecutive (a cyclic menu), repeats the cycle.
+ * The menu for a date. Uses the week saved for that date; otherwise carries
+ * the cycle on from the latest earlier week. When weeks are numbered (Week
+ * 1, 2, 3…) the next number follows, wrapping back to 1, and the newest copy
+ * of that week is used; without numbers, back-to-back weeks repeat in order.
  */
 export function menuForDate(menus, dateKey) {
   if (!menus?.length) return null
@@ -90,17 +92,27 @@ export function menuForDate(menus, dateKey) {
   let menu = sorted.find((m) => m.weekStart === monday)
   let repeated = false
   if (!menu) {
-    const consecutive = sorted.every((m, i) => i === 0 || daysBetween(sorted[i - 1].weekStart, m.weekStart) === 7)
-    const weeksAfter = daysBetween(sorted[0].weekStart, monday) / 7
-    if (consecutive && weeksAfter > 0) {
-      menu = sorted[weeksAfter % sorted.length]
-      repeated = true
+    const before = sorted.filter((m) => m.weekStart < monday)
+    const last = before.at(-1)
+    const cycle = Math.max(0, ...sorted.map((m) => m.week || 0))
+    if (last?.week && cycle > 1) {
+      const n = daysBetween(last.weekStart, monday) / 7
+      const want = ((last.week - 1 + n) % cycle) + 1
+      menu = sorted.findLast((m) => m.week === want) ?? null
+    } else if (last) {
+      const consecutive = sorted.every((m, i) => i === 0 || daysBetween(sorted[i - 1].weekStart, m.weekStart) === 7)
+      const weeksAfter = daysBetween(sorted[0].weekStart, monday) / 7
+      if (consecutive) menu = sorted[weeksAfter % sorted.length]
     }
+    repeated = Boolean(menu)
   }
   if (!menu) return null
   const entries = menu.days?.[weekday] ?? menu.days?.[String(weekday)] ?? []
   return { menu, weekday, repeated, entries }
 }
+
+/** "PANEER BHURJI" → "Paneer Bhurji". */
+export const titleCase = (text) => text.toLowerCase().replace(/(^|[\s/(-])\S/g, (c) => c.toUpperCase())
 
 /** Menu entries split into matched foods (one per dish found), unmatched text and "special lunch" slots. */
 export function menuFoods(entries) {
@@ -118,10 +130,15 @@ export function menuFoods(entries) {
       unknown.push(entry)
       continue
     }
+    // A dish that matched one food keeps the menu's own name ("Methi Mutter
+    // Masala" rather than "Mixed veg curry"); combined lines use food names.
     for (const m of matches) {
-      if (seen.has(m.food.id)) continue
-      seen.add(m.food.id)
-      foods.push({ food: m.food, entry })
+      const own = matches.length === 1
+      const label = own ? titleCase(entry.text) : m.food.name
+      const key = own ? label : m.food.id
+      if (seen.has(key)) continue
+      seen.add(key)
+      foods.push({ food: m.food, entry, label })
     }
   }
   return { foods, unknown, special }
