@@ -1,8 +1,7 @@
-import { ArrowRight, Camera, Dress, Hoodie, MagnifyingGlass, Pants, Plus, Sneaker, TShirt, WashingMachine, X } from '@phosphor-icons/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { COLORS, GROUPS, typeOf } from '../lib/vocab.js'
 import { ItemTile } from './Pieces.jsx'
-import { Button, Chip, inputClass, Notice, PageTitle, Spinner } from './ui.jsx'
+import { Button, Chip, IconButton, inputClass, Notice, PageTitle, Spinner } from './ui.jsx'
 
 const SORTS = [
   { value: 'new', label: 'Newest' },
@@ -44,44 +43,45 @@ export function usePhotoPicker(onFiles, { multiple = true } = {}) {
   return [input, () => ref.current?.click()]
 }
 
-const EMPTY_TILES = [
-  { Icon: TShirt, bg: '#f4f4f0', fg: '#151515' },
-  { Icon: Pants, bg: '#34477a', fg: '#f4f4f0' },
-  { Icon: Sneaker, bg: '#ff6a1a', fg: '#151515' },
-  { Icon: Hoodie, bg: '#6b6f35', fg: '#f4f4f0' },
-  { Icon: Dress, bg: '#c69a1f', fg: '#151515' },
-  { Icon: TShirt, bg: '#45474f', fg: '#f4f4f0' },
+// Deliberate misalignment: every second tile in a row drops. Phones (2 cols)
+// drop the right tile, md (3 cols) drops the middle one, lg (4 cols) drops the
+// 2nd and 4th. One class per breakpoint per tile, so nothing fights.
+const stagger = (i) => `min-w-0 ${i % 2 ? 'mt-8 lg:mt-12' : 'mt-0 lg:mt-0'} ${i % 3 === 1 ? 'md:mt-12' : 'md:mt-0'}`
+
+const GRID = 'grid grid-cols-2 items-start gap-x-3 gap-y-6 md:grid-cols-3 md:gap-x-4 lg:grid-cols-4'
+
+const TIPS = [
+  { n: '01', title: 'One piece per photo', line: 'Nothing else in the frame.', place: '' },
+  { n: '02', title: 'Daylight beats flash', line: 'A window keeps the colours true.', place: 'md:mt-12' },
+  { n: '03', title: 'Shoes and bags count', line: 'They finish the fit. Add them too.', place: 'md:col-start-1 md:ml-16' },
 ]
 
 function EmptyCloset({ onAdd, canTag }) {
   return (
-    <div className="rise grid items-center gap-8 rounded-sm bg-surface p-5 sm:p-8 md:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]">
-      <div className="flex flex-col items-start gap-5">
-        <h2 className="display text-[52px] sm:text-[72px]">
-          Nothing
-          <br />
-          in here yet
-        </h2>
-        <p className="max-w-[46ch] text-[16px] text-ink-2">
+    <div className="slam flex flex-col gap-8">
+      <h2 className="display min-w-0 text-[clamp(64px,13vw,150px)] break-words">Nothing in here yet</h2>
+
+      <div className="flex flex-col items-start gap-5 md:ml-[38%]">
+        <p className="max-w-[46ch] text-[16px]">
           Snap each piece on its own, on the bed, the floor or a hanger.
           {canTag ? ' Claude tags the type, colours and fabric, then builds outfits from what you actually own.' : ' Tag each one, then build outfits from what you actually own.'}
         </p>
-        <Button size="lg" onClick={onAdd}>
-          <Camera weight="bold" className="size-5" /> Add your first pieces
+        <Button variant="primary" size="lg" onClick={onAdd}>
+          <span aria-hidden="true">+</span> Add your first pieces
         </Button>
-        <ul className="flex flex-wrap gap-x-5 gap-y-1 text-[13.5px] text-muted">
-          <li>One piece per photo</li>
-          <li>Daylight beats flash</li>
-          <li>Shoes and bags count</li>
-        </ul>
       </div>
-      <div className="grid grid-cols-3 gap-1.5" aria-hidden="true">
-        {EMPTY_TILES.map(({ Icon, bg, fg }, i) => (
-          <div key={i} className="rise flex aspect-[4/5] items-center justify-center rounded-sm" style={{ background: bg, color: fg, animationDelay: `${120 + i * 60}ms` }}>
-            <Icon weight="duotone" className="size-1/2" />
-          </div>
+
+      <ol className="grid items-start gap-4 border-t-4 border-ink pt-8 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+        {TIPS.map((t) => (
+          <li key={t.n} className={`grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-4 border-4 border-ink p-4 ${t.place}`}>
+            <span className="display text-[72px] tnum">{t.n}</span>
+            <span className="flex min-w-0 flex-col gap-2 pt-1">
+              <span className="display text-[30px] break-words">{t.title}</span>
+              <span className="text-[15px]">{t.line}</span>
+            </span>
+          </li>
         ))}
-      </div>
+      </ol>
     </div>
   )
 }
@@ -149,7 +149,7 @@ export default function Closet({ items, ready, uploader, canTag, onOpenItem, onS
 
   return (
     <div
-      className="relative flex flex-col gap-6"
+      className="relative flex flex-col gap-8"
       onDragOver={(e) => {
         if ([...(e.dataTransfer?.types ?? [])].includes('Files')) {
           e.preventDefault()
@@ -161,13 +161,14 @@ export default function Closet({ items, ready, uploader, canTag, onOpenItem, onS
     >
       {picker}
 
+      {/* Hero: the count is the section's one accent number, Add photos the screen's one accent CTA. */}
       <PageTitle
         count={ready && items.length ? items.length : null}
         sub={ready && items.length ? (counts.laundry ? `${counts.laundry} in the wash, ${clean} ready to wear.` : `All ${clean} ready to wear.`) : null}
         aside={
           items.length > 0 && (
-            <Button onClick={openPicker} disabled={!ready}>
-              <Plus weight="bold" className="size-4" /> Add photos
+            <Button variant="primary" size="lg" onClick={openPicker} disabled={!ready}>
+              <span aria-hidden="true">+</span> Add photos
             </Button>
           )
         }
@@ -176,8 +177,8 @@ export default function Closet({ items, ready, uploader, canTag, onOpenItem, onS
       </PageTitle>
 
       {(uploader.adding > 0 || uploader.tagging > 0) && (
-        <Notice className="flex items-center gap-3">
-          <Spinner className="size-4 text-accent" />
+        <Notice tone="warn" className="flex items-center gap-3">
+          <Spinner className="text-[18px]" />
           <span>
             {uploader.adding > 0 ? `Saving ${uploader.adding} photo${uploader.adding === 1 ? '' : 's'}…` : ''}
             {uploader.adding > 0 && uploader.tagging > 0 ? ' ' : ''}
@@ -202,21 +203,21 @@ export default function Closet({ items, ready, uploader, canTag, onOpenItem, onS
               <p key={e}>{e}</p>
             ))}
           </div>
-          <button type="button" aria-label="Dismiss" onClick={uploader.clearErrors} className="text-muted hover:text-ink">
-            <X weight="bold" className="size-4" />
-          </button>
+          <IconButton label="Dismiss" onClick={uploader.clearErrors}>
+            ×
+          </IconButton>
         </Notice>
       )}
 
       {!ready ? (
-        <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" aria-hidden="true">
+        <div className={GRID} aria-hidden="true">
           {Array.from({ length: 8 }, (_, i) => (
-            <div key={i} className="flex flex-col gap-2.5">
-              <div className="relative aspect-[4/5] overflow-hidden rounded-sm bg-raised">
-                <div className="shimmer absolute inset-0" />
+            <div key={i} className={`${stagger(i)} blink flex flex-col border-4 border-ink`} style={{ animationDelay: `${(i % 4) * 225}ms` }}>
+              <div className="aspect-[4/5] border-b-4 border-ink bg-raised" />
+              <div className="flex flex-col gap-2 px-2 pt-2 pb-2.5">
+                <div className="h-5 w-2/3 bg-ink" />
+                <div className="h-3 w-1/3 bg-raised" />
               </div>
-              <div className="h-4 w-2/3 rounded-sm bg-raised" />
-              <div className="h-3 w-1/3 rounded-sm bg-raised" />
             </div>
           ))}
         </div>
@@ -225,35 +226,30 @@ export default function Closet({ items, ready, uploader, canTag, onOpenItem, onS
       ) : (
         <>
           <div className="flex flex-col gap-3">
-            <div className="flex gap-2">
-              <label className="relative min-w-0 flex-1">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 md:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] md:gap-4">
+              <label className="min-w-0">
                 <span className="sr-only">Search your closet</span>
-                <MagnifyingGlass weight="bold" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" aria-hidden />
-                <input
-                  id="closet-search"
-                  type="search"
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Search"
-                  className={`${inputClass} pl-9`}
-                />
+                <input id="closet-search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" className={inputClass} />
               </label>
-              <label className="shrink-0">
+              <label className="group relative min-w-0">
                 <span className="sr-only">Sort</span>
-                <select id="closet-sort" value={sort} onChange={(e) => setSort(e.target.value)} className={`${inputClass} w-auto pr-8 font-semibold`}>
+                <select id="closet-sort" value={sort} onChange={(e) => setSort(e.target.value)} className={`${inputClass} pr-10 font-bold uppercase`}>
                   {SORTS.map((s) => (
                     <option key={s.value} value={s.value}>
                       {s.label}
                     </option>
                   ))}
                 </select>
+                <span aria-hidden="true" className="display pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[20px] group-hover:text-page">
+                  ↓
+                </span>
               </label>
             </div>
-            <div className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+            <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
               {chips.map((c) => (
                 <Chip key={c.value} active={activeGroup === c.value} onClick={() => setGroup(c.value)}>
                   {c.label}
-                  <span className={`tnum text-[12px] font-medium ${activeGroup === c.value ? 'text-page/70' : 'text-muted'}`}>{counts[c.value] ?? 0}</span>
+                  <span className="tnum opacity-70">{counts[c.value] ?? 0}</span>
                 </Chip>
               ))}
             </div>
@@ -261,57 +257,47 @@ export default function Closet({ items, ready, uploader, canTag, onOpenItem, onS
 
           {activeGroup === 'laundry' && counts.laundry > 0 && (
             <Notice className="flex flex-wrap items-center justify-between gap-3">
-              <p className="flex items-center gap-2">
-                <WashingMachine weight="bold" className="size-4 shrink-0" /> Pieces in the wash are left out of outfit ideas.
-              </p>
+              <p>Pieces in the wash are left out of outfit ideas.</p>
               <Button size="sm" variant="secondary" onClick={() => onLaundryClean(items.filter((i) => i.laundry).map((i) => i.id))}>
                 All clean
               </Button>
             </Notice>
           )}
 
-          <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {activeGroup === 'all' && !q && (
-              <button
-                type="button"
-                onClick={openPicker}
-                className="group flex aspect-[4/5] flex-col items-start justify-between rounded-sm border-[1.5px] border-dashed border-line p-3 text-left text-ink-2 transition-colors hover:border-accent hover:text-ink"
-              >
-                <span className="flex size-10 items-center justify-center rounded-sm bg-accent text-on-accent transition-transform group-hover:rotate-90">
-                  <Plus weight="bold" className="size-5" />
-                </span>
-                <span className="flex flex-col gap-1">
-                  <span className="display text-[28px]">Add photos</span>
-                  <span className="text-[13px] text-muted">Tap, drop or paste</span>
-                </span>
-              </button>
-            )}
+          {/* The work tiles: staggered on purpose. */}
+          <div className={GRID}>
             {shown.map((item, i) => (
-              <ItemTile key={item.id} item={item} index={i} onOpen={onOpenItem} />
+              <div key={item.id} className={stagger(i)}>
+                <ItemTile item={item} index={i} onOpen={onOpenItem} />
+              </div>
             ))}
           </div>
-          {shown.length === 0 && <p className="py-8 text-center text-muted">Nothing matches. Try another word or filter.</p>}
+          {shown.length === 0 && (
+            <div className="flex flex-col gap-2 border-4 border-ink px-4 py-6 md:mr-[30%]">
+              <p className="display text-[44px]">Nothing matches</p>
+              <p className="text-[16px]">Try another word or filter.</p>
+            </div>
+          )}
 
+          {/* The closer: one giant line, one clickable thing. Black: the accent belongs to Add photos. */}
           {items.length >= 3 && activeGroup === 'all' && !q && (
-            <button
-              type="button"
-              onClick={onStyle}
-              className="group mt-2 flex items-end justify-between gap-4 rounded-sm bg-accent px-5 pt-6 pb-5 text-left text-on-accent transition-transform active:translate-y-px sm:px-8 sm:pt-10 sm:pb-7"
-            >
-              <span className="flex min-w-0 flex-col gap-2">
-                <span className="display text-[44px] sm:text-[72px]">What’s the fit today?</span>
-                <span className="text-[15px] font-medium">Claude picks from your {clean} clean pieces.</span>
-              </span>
-              <ArrowRight weight="bold" className="size-9 shrink-0 transition-transform group-hover:translate-x-1 sm:size-12" />
-            </button>
+            <section className="mt-6 flex flex-col gap-6 border-t-4 border-ink pt-6">
+              <h2 className="display min-w-0 text-[clamp(56px,12vw,160px)] break-words">What’s the fit today?</h2>
+              <div className="flex flex-col items-start gap-4 md:ml-[42%]">
+                <p className="text-[16px]">Claude picks from your {clean} clean pieces.</p>
+                <Button variant="black" size="lg" onClick={onStyle}>
+                  Build my fit →
+                </Button>
+              </div>
+            </section>
           )}
         </>
       )}
 
       {dragging && (
-        <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-scrim">
-          <div className="rounded-sm border-t-[3px] border-accent bg-page px-8 py-6 text-center shadow-card">
-            <p className="display text-[40px]">Drop to add</p>
+        <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-scrim p-4">
+          <div className="border-4 border-ink bg-page px-6 py-6 sm:px-10 sm:py-8">
+            <p className="display text-[clamp(56px,10vw,120px)]">Drop to add</p>
           </div>
         </div>
       )}
