@@ -1,0 +1,237 @@
+@import 'tailwindcss';
+
+/*
+ * Brutalist cream (see DESIGN.md). Three colours: raw cream, ink, raw red.
+ * Every border 4px ink, no radius, no shadow, no gradient, nothing smooth.
+ * Layout: asymmetric, staggered, deliberately misaligned; one column on phones.
+ * One visual world on purpose: the page is cream for every viewer.
+ */
+:root {
+  --page: #f0ebe0;
+  --surface: #f0ebe0;
+  --raised: #dcd7cb;
+  --board: #0a0a0a;
+  --line: #0a0a0a;
+  --ink: #0a0a0a;
+  --ink-2: #0a0a0a;
+  --muted: #57534b;
+  --accent: #e8000d;
+  --accent-ink: #e8000d;
+  --on-accent: #ffffff;
+  --good: #0a0a0a;
+  --warn: #0a0a0a;
+  --critical: #0a0a0a;
+  --scrim: rgb(10 10 10 / 0.72);
+
+  --display: Impact, 'Anton', Haettenschweiler, 'Arial Narrow Bold', 'sans-serif-condensed', sans-serif;
+  --mono: 'Courier New', 'Courier Prime', Courier, monospace;
+  color-scheme: light;
+}
+
+@theme inline {
+  --font-sans: var(--mono);
+  --font-mono: var(--mono);
+
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-board: var(--board);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-on-accent: var(--on-accent);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-critical: var(--critical);
+  --color-scrim: var(--scrim);
+}
+
+/*
+ * Page base, deliberately outside @layer: claude.ai wraps the page in its own
+ * unlayered starter styles. Unlayered rules beat layered ones.
+ */
+html {
+  background: var(--page);
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* No radius, no shadow, no transition: anywhere. */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transition: none !important;
+}
+
+@layer base {
+  :focus-visible {
+    outline: 4px dashed var(--ink);
+    outline-offset: 3px;
+  }
+  ::selection {
+    background: var(--ink);
+    color: var(--page);
+  }
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+  select {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
+/*
+ * Hover: filter: invert(1) on every interactive element (pointer devices only,
+ * so a tap doesn't leave things inverted). Photos inside are counter-inverted
+ * so clothes keep their real colours. Red never inverts (that would be teal):
+ * red buttons carry .red and turn black instead.
+ */
+@media (hover: hover) {
+  button:not(:disabled):not(.red):hover,
+  a:hover,
+  select:hover,
+  label.inv:hover {
+    filter: invert(1);
+  }
+  /* Anything without its own background gets cream first, so the invert reads as a solid black block. */
+  button:not(:disabled):not(.red):not([class*='bg-']):hover,
+  a:not([class*='bg-']):hover {
+    background-color: var(--page);
+  }
+  button:not(:disabled):not(.red):hover img,
+  a:hover img {
+    filter: invert(1);
+  }
+  /* Colour blocks (a piece with no photo) keep their true colour, like photos. */
+  button:not(:disabled):not(.red):hover .keep-color {
+    filter: invert(1);
+  }
+  button.red:not(:disabled):hover {
+    background: var(--ink) !important;
+    color: var(--page) !important;
+    border-color: var(--ink) !important;
+  }
+}
+
+/* In a layer so Tailwind utilities (leading-*, text-*) can override them per use. */
+@layer components {
+/* Impact, uppercase. One weight only: never faux-bold it. */
+.display {
+  font-family: var(--display);
+  font-weight: 400;
+  font-synthesis: none;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  line-height: 0.9;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Small Courier metadata. */
+.meta {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* A swing tag cut square: notched end, no curves. Counts wears. */
+.hangtag {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px 0 14px;
+  background: var(--ink);
+  color: var(--page);
+  font: 700 13px/1 var(--mono);
+  clip-path: polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 0 50%);
+}
+
+.cap-first::first-letter {
+  text-transform: uppercase;
+}
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* The one marquee: linear, endless, 25s a lap. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 25s linear infinite;
+}
+
+/* Entrances jump in three hard steps instead of easing. */
+@keyframes slam {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.slam {
+  animation: slam 210ms steps(3, jump-end) both;
+}
+
+/* Loading blocks blink in hard on/off steps. */
+@keyframes blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+.blink {
+  animation: blink 900ms steps(1, end) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track,
+  .slam,
+  .blink {
+    animation: none !important;
+  }
+}
