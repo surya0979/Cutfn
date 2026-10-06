@@ -13,7 +13,7 @@ A phone-first rebuild of [wardrowbe](https://github.com/anyesh/wardrowbe)'s idea
    - **Build around a piece:** pick one item (or tap *Style this piece* on it) and it's in every look.
    - **Wear today** logs the outfit, bumps each piece's wear count, and moves pieces that are due for a wash to the laundry. A t-shirt goes after 1 wear, jeans after 6, and shoes, bags and watches never go. Laundry pieces are left out of suggestions until you mark them clean.
    - Thumbs up and thumbs down (with a reason) are remembered and sent with every future request, so suggestions learn your taste.
-   - **Fit check:** send a mirror selfie for a score and two concrete tweaks. The photo isn't stored.
+   - **Rate my fit:** send a mirror selfie for a score and two concrete tweaks. The photo isn't stored.
 3. **Saved.** Looks you saved from Claude, or put together yourself (*Make a look*: tap pieces, and the app swaps out clashing ones, e.g. a second shirt). Wear any of them again in one tap.
 4. **History.** A month calendar of what you wore, 30-day rotation, never-worn count, your colour palette, most-worn pieces, and pieces waiting 30+ days with a *Style it* shortcut. **What to buy next** asks Claude for the 3–5 purchases that would unlock the most new outfits, plus outfit ideas for what you ignore.
 5. **Style profile** (top right). Menswear, womenswear or no preference, styles and colours you like or avoid, your city, and notes such as height, fit preferences or "uniform on weekdays". Claude reads all of this every time.
@@ -54,7 +54,7 @@ src/
     History.jsx            calendar, stats, palette, what to buy next
     SettingsSheet.jsx      style profile, storage
     Pieces.jsx             ItemImage, ItemTile, OutfitBoard (the flat-lay)
-    GarmentGlyph.jsx       garment silhouettes for missing photos and the empty closet
+    GarmentIcon.jsx        garment icon on a tile of the piece's colour, for missing photos
   lib/
     vocab.js               garment types (with body slot and wash interval), colours, scales
     outfits.js             slot de-duplication, head-to-toe order, weather ranking, stylist prompt, reply parsing
@@ -65,4 +65,4 @@ src/
 scripts/build-artifact.mjs turns the Vite build into the claude.ai page
 ```
 
-Built with React 19, Vite and Tailwind CSS v4.
+Built with React 19, Vite, Tailwind CSS v4 and Phosphor icons. The look: Archivo at extra-condensed widths for headlines, one safety-orange accent, 4px corners, dark by default with a light mode that follows the system setting.

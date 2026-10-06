@@ -1,22 +1,19 @@
-import { Bookmark, CalendarDays, Cloud, HardDrive, Shirt, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { BookmarkSimple, CalendarBlank, CloudCheck, CoatHanger, HardDrives, MagicWand, SlidersHorizontal } from '@phosphor-icons/react'
 
 export const TABS = [
-  { id: 'closet', label: 'Closet', icon: Shirt },
-  { id: 'style', label: 'Style me', icon: Sparkles },
-  { id: 'looks', label: 'Saved', icon: Bookmark },
-  { id: 'history', label: 'History', icon: CalendarDays },
+  { id: 'closet', label: 'Closet', icon: CoatHanger },
+  { id: 'style', label: 'Style me', icon: MagicWand },
+  { id: 'looks', label: 'Saved', icon: BookmarkSimple },
+  { id: 'history', label: 'History', icon: CalendarBlank },
 ]
 
 function SyncBadge({ mode }) {
-  if (mode === 'connecting') return <span className="label text-muted">Connecting…</span>
+  if (mode === 'connecting') return <span className="meta text-muted">Connecting</span>
   const cloud = mode === 'cloud'
-  const Icon = cloud ? Cloud : HardDrive
+  const Icon = cloud ? CloudCheck : HardDrives
   return (
-    <span
-      className="label inline-flex items-center gap-1.5 text-muted"
-      title={cloud ? 'Synced across your devices through claude.ai' : 'Saved in this browser only'}
-    >
-      <Icon className={`size-3.5 ${cloud ? 'text-good' : ''}`} aria-hidden />
+    <span className="meta inline-flex items-center gap-1.5 text-muted" title={cloud ? 'Synced across your devices through claude.ai' : 'Saved in this browser only'}>
+      <Icon weight="bold" className={`size-4 ${cloud ? 'text-good' : ''}`} aria-hidden />
       <span className="hidden sm:inline">{cloud ? 'Synced' : 'This device'}</span>
     </span>
   )
@@ -24,21 +21,22 @@ function SyncBadge({ mode }) {
 
 export default function Header({ tab, onTab, mode, onSettings }) {
   return (
-    <header className="sticky top-[env(safe-area-inset-top,0px)] z-30 bg-page/92 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6">
-        <button type="button" onClick={() => onTab('closet')} className="flex items-baseline gap-2" aria-label="Fitfn, go to closet">
-          <span className="font-display text-[28px] leading-none font-bold tracking-tight italic">Fitfn</span>
+    <header className="sticky top-[env(safe-area-inset-top,0px)] z-30 border-b border-line bg-page/90 backdrop-blur-md">
+      <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6">
+        <button type="button" onClick={() => onTab('closet')} className="display text-[34px] leading-none" aria-label="Fitfn, go to closet">
+          Fit<span className="text-accent">fn</span>
         </button>
-        <nav className="ml-4 hidden items-center gap-1 md:flex" aria-label="Sections">
+        <nav className="hidden h-full items-stretch gap-1 md:flex" aria-label="Sections">
           {TABS.map((t) => (
             <button
               key={t.id}
               type="button"
               onClick={() => onTab(t.id)}
               aria-current={tab === t.id ? 'page' : undefined}
-              className={`rounded-full px-4 py-2 text-[15px] font-semibold transition-colors ${tab === t.id ? 'bg-ink text-page' : 'text-ink-2 hover:bg-raised hover:text-ink'}`}
+              className={`condensed relative px-3 text-[16px] transition-colors ${tab === t.id ? 'text-ink' : 'text-muted hover:text-ink'}`}
             >
               {t.label}
+              <span className={`absolute inset-x-3 bottom-0 h-[3px] bg-accent transition-transform ${tab === t.id ? 'scale-x-100' : 'scale-x-0'}`} />
             </button>
           ))}
         </nav>
@@ -48,24 +46,21 @@ export default function Header({ tab, onTab, mode, onSettings }) {
             type="button"
             onClick={onSettings}
             aria-label="Style profile"
-            className="inline-flex h-10 items-center gap-2 rounded-full border border-line bg-surface px-3.5 text-[14px] font-semibold text-ink-2 hover:text-ink"
+            className="condensed inline-flex h-10 items-center gap-2 rounded-sm border-[1.5px] border-line px-3 text-[14px] text-ink-2 transition-colors hover:border-ink hover:text-ink"
           >
-            <SlidersHorizontal className="size-4" aria-hidden /> <span className="hidden sm:inline">Style profile</span>
+            <SlidersHorizontal weight="bold" className="size-4" aria-hidden />
+            <span className="hidden sm:inline">Style profile</span>
             <span className="sm:hidden">Profile</span>
           </button>
         </div>
       </div>
-      <div className="selvedge" />
     </header>
   )
 }
 
 export function BottomNav({ tab, onTab }) {
   return (
-    <nav
-      aria-label="Sections"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-page/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-md md:hidden"
-    >
+    <nav aria-label="Sections" className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-page/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-md md:hidden">
       <div className="grid grid-cols-4">
         {TABS.map((t) => {
           const Icon = t.icon
@@ -76,11 +71,10 @@ export function BottomNav({ tab, onTab }) {
               type="button"
               onClick={() => onTab(t.id)}
               aria-current={on ? 'page' : undefined}
-              className={`flex flex-col items-center gap-0.5 pt-2.5 pb-2 text-[11.5px] font-semibold ${on ? 'text-ink' : 'text-muted'}`}
+              className={`condensed relative flex flex-col items-center gap-1 pt-3 pb-2.5 text-[12px] transition-colors ${on ? 'text-ink' : 'text-muted'}`}
             >
-              <span className={`flex h-7 w-12 items-center justify-center rounded-full transition-colors ${on ? 'bg-ink text-page' : ''}`}>
-                <Icon className="size-[18px]" aria-hidden />
-              </span>
+              <span className={`absolute inset-x-5 top-0 h-[3px] bg-accent transition-transform ${on ? 'scale-x-100' : 'scale-x-0'}`} />
+              <Icon weight={on ? 'fill' : 'regular'} className={`size-6 ${on ? 'text-accent' : ''}`} aria-hidden />
               {t.label}
             </button>
           )

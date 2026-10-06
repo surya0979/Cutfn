@@ -96,7 +96,7 @@ export default function App() {
           {store.error && (
             <Notice tone="error" className="mb-5 flex items-start justify-between gap-3">
               <span>{store.error}</span>
-              <button type="button" onClick={store.clearError} className="label shrink-0 text-muted hover:text-ink">
+              <button type="button" onClick={store.clearError} className="condensed shrink-0 text-[13px] text-muted hover:text-ink">
                 Dismiss
               </button>
             </Notice>

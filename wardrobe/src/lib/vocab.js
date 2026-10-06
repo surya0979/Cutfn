@@ -215,10 +215,10 @@ export const occasionLabel = (v) => OCCASIONS.find((o) => o.value === v)?.label 
 // Temperature bands in °C. hot/cold drive the on-device ranking.
 export const WEATHER = [
   { value: 'scorching', label: 'Scorching', range: '35°+', temp: 37 },
-  { value: 'hot', label: 'Hot', range: '29–34°', temp: 31 },
-  { value: 'warm', label: 'Warm', range: '24–28°', temp: 26 },
-  { value: 'mild', label: 'Mild', range: '18–23°', temp: 21 },
-  { value: 'cool', label: 'Cool', range: '12–17°', temp: 15 },
+  { value: 'hot', label: 'Hot', range: '29-34°', temp: 31 },
+  { value: 'warm', label: 'Warm', range: '24-28°', temp: 26 },
+  { value: 'mild', label: 'Mild', range: '18-23°', temp: 21 },
+  { value: 'cool', label: 'Cool', range: '12-17°', temp: 15 },
   { value: 'cold', label: 'Cold', range: 'under 12°', temp: 8 },
 ]
 export const weatherOf = (v) => WEATHER.find((w) => w.value === v) ?? WEATHER[2]

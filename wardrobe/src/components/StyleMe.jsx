@@ -1,4 +1,4 @@
-import { Camera, CloudRain, Droplets, RefreshCw, Sparkles, Square, X } from 'lucide-react'
+import { ArrowRight, ArrowsClockwise, Camera, CloudRain, Drop, Plus, Stop, X } from '@phosphor-icons/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { curateOutfits, fitCheck } from '../lib/ai.js'
 import { todayKey } from '../lib/dates.js'
@@ -8,7 +8,7 @@ import { OCCASIONS, TIMES, WEATHER, occasionLabel, typeLabel } from '../lib/voca
 import { usePhotoPicker } from './Closet.jsx'
 import OutfitCard from './OutfitCard.jsx'
 import { ItemImage, ItemTile } from './Pieces.jsx'
-import { Button, Chip, Field, inputClass, Notice, Sheet, Spinner } from './ui.jsx'
+import { Button, Chip, Field, IconButton, inputClass, Notice, PageTitle, Sheet, Spinner } from './ui.jsx'
 
 const PLAN_KEY = 'fitfn.plan'
 const DEFAULT_PLAN = { occasion: 'everyday', weather: 'warm', rain: false, humid: false, time: 'day', brief: '', mustInclude: null }
@@ -48,7 +48,7 @@ function PiecePicker({ open, onClose, items, onPick }) {
   return (
     <Sheet open={open} onClose={onClose} title="Build around a piece" wide>
       <div className="flex flex-col gap-4">
-        <input id="pick-search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search your closet" className={`${inputClass} rounded-full`} />
+        <input id="pick-search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search your closet" className={inputClass} />
         <div className="grid grid-cols-3 gap-x-2.5 gap-y-4 sm:grid-cols-4">
           {list.map((item) => (
             <ItemTile
@@ -100,47 +100,43 @@ function FitCheck({ plan, enabled }) {
   const { status, preview, result, error } = state
 
   return (
-    <section className="flex flex-col gap-4 rounded-3xl border border-line bg-surface p-4 sm:p-5">
+    <section className="grid gap-5 rounded-sm border-[1.5px] border-line p-4 sm:p-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-center">
       {picker}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <h2 className="font-display text-[22px] leading-tight font-semibold">Fit check</h2>
-          <p className="text-[14px] text-ink-2">Already dressed? Send a mirror photo and get an honest second opinion.</p>
-        </div>
-        <Button variant="secondary" size="sm" onClick={open} disabled={status === 'thinking'}>
-          <Camera className="size-4" /> {status === 'idle' ? 'Add a photo' : 'Try another'}
+      <div className="flex min-w-0 flex-col items-start gap-3">
+        <h2 className="display text-[44px] sm:text-[56px]">Rate my fit</h2>
+        <p className="max-w-[44ch] text-[15px] text-ink-2">Already dressed? Send a mirror pic for an honest score and two quick fixes. The photo goes to Claude and isn’t saved.</p>
+        <Button variant="secondary" onClick={open} disabled={status === 'thinking'}>
+          <Camera weight="bold" className="size-4" /> {status === 'idle' ? 'Send a mirror pic' : 'Try another'}
         </Button>
       </div>
       {status !== 'idle' && (
-        <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-4 sm:grid-cols-[120px_minmax(0,1fr)]">
-          {preview ? <img src={preview} alt="Your outfit" className="aspect-[3/4] w-full rounded-xl object-cover" /> : <div />}
-          <div className="flex min-w-0 flex-col gap-2">
+        <div className="rise grid grid-cols-[104px_minmax(0,1fr)] gap-4 sm:grid-cols-[132px_minmax(0,1fr)]">
+          {preview ? <img src={preview} alt="Your outfit" className="aspect-[3/4] w-full rounded-sm object-cover" /> : <div />}
+          <div className="flex min-w-0 flex-col gap-2.5">
             {status === 'thinking' && (
               <p className="flex items-center gap-2 text-ink-2">
-                <Spinner /> Claude is looking…
+                <Spinner className="size-4 text-accent" /> Claude is looking…
               </p>
             )}
             {status === 'error' && <p className="text-critical">{error}</p>}
             {status === 'done' && result && (
               <>
-                <p className="flex items-baseline gap-3">
-                  {result.score != null && (
-                    <span className="font-display text-[34px] leading-none font-semibold tnum">
-                      {result.score}
-                      <span className="text-[16px] text-muted">/10</span>
-                    </span>
-                  )}
-                  <span className="font-display text-[18px] italic">{result.verdict}</span>
-                </p>
+                {result.score != null && (
+                  <p className="display text-[64px] text-accent-ink tnum">
+                    {result.score}
+                    <span className="text-[24px] text-muted">/10</span>
+                  </p>
+                )}
+                <p className="condensed text-[17px]">{result.verdict}</p>
                 {result.good.map((g) => (
                   <p key={g} className="text-[14px]">
-                    <span className="label mr-2 text-good">Works</span>
+                    <span className="font-bold text-good">Works: </span>
                     {g}
                   </p>
                 ))}
                 {result.tweaks.map((t) => (
                   <p key={t} className="text-[14px]">
-                    <span className="label mr-2 text-accent-ink">Try</span>
+                    <span className="font-bold text-accent-ink">Try: </span>
                     {t}
                   </p>
                 ))}
@@ -149,7 +145,6 @@ function FitCheck({ plan, enabled }) {
           </div>
         </div>
       )}
-      <p className="label text-muted">The photo is only sent to Claude; it isn’t saved.</p>
     </section>
   )
 }
@@ -224,7 +219,7 @@ export default function StyleMe({ items, itemsById, settings, taste, ai, actions
     const { undo, toLaundry } = actions.logWear({ date: today, itemIds: o.itemIds, title: o.title, occasion: plan.occasion })
     setMarks((m) => ({ ...m, [key]: { ...m[key], worn: true } }))
     showToast({
-      message: `Logged for today${toLaundry.length ? `. ${toLaundry.length} piece${toLaundry.length > 1 ? 's' : ''} to the laundry` : ''}`,
+      message: `Logged for today${toLaundry.length ? `. ${toLaundry.length} piece${toLaundry.length > 1 ? 's' : ''} into the wash` : ''}`,
       onUndo: () => {
         undo()
         setMarks((m) => ({ ...m, [key]: { ...m[key], worn: false } }))
@@ -247,151 +242,155 @@ export default function StyleMe({ items, itemsById, settings, taste, ai, actions
   const feedback = (o, key, kind, reason) => {
     actions.addTaste(kind, { summary: summarizeOutfit(o.itemIds, itemsById), reason: reason ?? null })
     setMarks((m) => ({ ...m, [key]: { ...m[key], feedback: kind } }))
-    showToast({ message: kind === 'liked' ? 'Noted. More like this next time' : 'Noted. Claude will steer away from this' })
+    showToast({ message: kind === 'liked' ? 'Noted. More like this next time.' : 'Noted. Claude will steer clear.' })
   }
 
   const alreadySaved = (o) => looks.some((l) => sameOutfit(l.itemIds ?? [], o.itemIds))
 
   if (ai.text === false) {
     return (
-      <div className="flex flex-col gap-5">
-        <h1 className="font-display text-[34px] leading-none font-semibold sm:text-[40px]">Style me</h1>
-        <Notice>
-          Outfit ideas come from Claude, which is only available when this app is opened on claude.ai. Your closet, saved looks and history still work here.
-        </Notice>
+      <div className="flex flex-col gap-6">
+        <PageTitle>Style me</PageTitle>
+        <Notice>Outfit ideas come from Claude, which only works when this app is opened on claude.ai. Your closet, saved looks and history still work here.</Notice>
       </div>
     )
   }
 
+  const question = 'condensed text-[17px] text-ink'
+
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="font-display text-[34px] leading-none font-semibold sm:text-[40px]">Style me</h1>
-        <p className="text-ink-2">Tell Claude what the day looks like. It picks from the {clean.length} clean piece{clean.length === 1 ? '' : 's'} in your closet.</p>
-      </div>
+    <div className="flex flex-col gap-8">
+      <PageTitle sub={`Tell Claude the plan. It builds the fit from your ${clean.length} clean piece${clean.length === 1 ? '' : 's'}.`}>Style me</PageTitle>
 
-      <section className="flex flex-col gap-5 rounded-3xl bg-surface p-4 shadow-card sm:p-5">
-        <Field label="Occasion">
-          <div className="flex flex-wrap gap-1.5">
-            {OCCASIONS.map((o) => (
-              <Chip key={o.value} active={plan.occasion === o.value} onClick={() => setPlan({ occasion: o.value })}>
-                {o.label}
-              </Chip>
-            ))}
-          </div>
-        </Field>
-
-        <Field label="Weather (°C)">
-          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
-            {WEATHER.map((w) => (
-              <button
-                key={w.value}
-                type="button"
-                aria-pressed={plan.weather === w.value}
-                onClick={() => setPlan({ weather: w.value })}
-                className={`flex flex-col items-start rounded-xl border px-3 py-2 text-left transition-colors ${
-                  plan.weather === w.value ? 'border-ink bg-ink text-page' : 'border-line bg-surface text-ink hover:border-ink/35'
-                }`}
-              >
-                <span className="text-[14px] font-semibold">{w.label}</span>
-                <span className={`font-mono text-[11.5px] tnum ${plan.weather === w.value ? 'text-page/75' : 'text-muted'}`}>{w.range}</span>
-              </button>
-            ))}
-          </div>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            <Chip active={plan.rain} onClick={() => setPlan({ rain: !plan.rain })}>
-              <CloudRain className="size-4" /> Rain likely
-            </Chip>
-            <Chip active={plan.humid} onClick={() => setPlan({ humid: !plan.humid })}>
-              <Droplets className="size-4" /> Humid
-            </Chip>
-          </div>
-        </Field>
-
-        <Field label="When">
-          <div className="flex flex-wrap gap-1.5">
-            {TIMES.map((t) => (
-              <Chip key={t.value} active={plan.time === t.value} onClick={() => setPlan({ time: t.value })}>
-                {t.label}
-              </Chip>
-            ))}
-          </div>
-        </Field>
-
-        <Field label="Anything else?">
-          {(id) => (
-            <textarea
-              id={id}
-              rows={2}
-              value={plan.brief}
-              onChange={(e) => setPlan({ brief: e.target.value })}
-              placeholder="e.g. cousin’s mehendi, lots of sitting on the floor; want to look sharp but stay cool"
-              className={inputClass}
-              maxLength={300}
-            />
-          )}
-        </Field>
-
-        <div className="flex flex-col gap-2">
-          <span className="label text-muted">Build around</span>
-          {must ? (
-            <div className="flex items-center gap-3 rounded-2xl bg-raised p-2 pr-3">
-              <ItemImage item={must} className="size-14 shrink-0 rounded-xl" />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate font-semibold">{must.name}</span>
-                <span className="label text-muted">In every look</span>
-              </div>
-              <button type="button" aria-label="Remove" onClick={() => setPlan({ mustInclude: null })} className="flex size-9 items-center justify-center rounded-full text-muted hover:bg-surface hover:text-ink">
-                <X className="size-4" />
-              </button>
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="flex min-w-0 flex-col gap-7">
+          <div className="flex flex-col gap-3">
+            <h2 className={question}>Where are you headed?</h2>
+            <div className="flex flex-wrap gap-1.5">
+              {OCCASIONS.map((o) => (
+                <Chip key={o.value} active={plan.occasion === o.value} onClick={() => setPlan({ occasion: o.value })}>
+                  {o.label}
+                </Chip>
+              ))}
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setPickerOpen(true)}
-              disabled={!clean.length}
-              className="flex items-center justify-center rounded-2xl border border-dashed border-line px-4 py-3 text-[14px] text-ink-2 hover:border-ink/40 hover:text-ink disabled:opacity-40"
-            >
-              Optional: pick a piece to wear
-            </button>
-          )}
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <h2 className={question}>How hot is it?</h2>
+            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+              {WEATHER.map((w) => {
+                const on = plan.weather === w.value
+                return (
+                  <button
+                    key={w.value}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setPlan({ weather: w.value })}
+                    className={`flex flex-col items-start gap-1.5 rounded-sm border-[1.5px] px-2.5 pt-2.5 pb-2 text-left transition-colors active:translate-y-px ${
+                      on ? 'border-accent bg-accent text-on-accent' : 'border-line text-ink hover:border-ink/50'
+                    }`}
+                  >
+                    <span className="display text-[26px] tnum">{w.range.replace('under ', '<')}</span>
+                    <span className={`text-[13px] font-semibold ${on ? '' : 'text-muted'}`}>{w.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <Chip active={plan.rain} onClick={() => setPlan({ rain: !plan.rain })}>
+                <CloudRain weight="bold" className="size-4" /> Rain likely
+              </Chip>
+              <Chip active={plan.humid} onClick={() => setPlan({ humid: !plan.humid })}>
+                <Drop weight="bold" className="size-4" /> Humid
+              </Chip>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <h2 className={question}>When?</h2>
+            <div className="flex flex-wrap gap-1.5">
+              {TIMES.map((t) => (
+                <Chip key={t.value} active={plan.time === t.value} onClick={() => setPlan({ time: t.value })}>
+                  {t.label}
+                </Chip>
+              ))}
+            </div>
+          </div>
+
+          <Field label="Anything else Claude should know?">
+            {(id) => (
+              <textarea
+                id={id}
+                rows={2}
+                value={plan.brief}
+                onChange={(e) => setPlan({ brief: e.target.value })}
+                placeholder="Cousin’s mehendi, lots of sitting on the floor. Want to look sharp but stay cool."
+                className={inputClass}
+                maxLength={300}
+              />
+            )}
+          </Field>
         </div>
 
-        {!ready.ready && items.length > 0 && <Notice tone="warn">Add {ready.missing.join(' and ')} (or empty the laundry) so Claude can build a full outfit.</Notice>}
-        {ready.ready && ready.missing.includes('shoes') && <Notice>No shoes in your closet yet. Outfits will skip footwear until you add some.</Notice>}
+        <aside className="flex flex-col gap-4 rounded-sm bg-surface p-4 lg:sticky lg:top-24">
+          <div className="flex flex-col gap-2">
+            <span className={question}>Build around a piece</span>
+            {must ? (
+              <div className="flex items-center gap-3 rounded-sm bg-raised p-2 pr-2.5">
+                <ItemImage item={must} className="size-14 shrink-0 rounded-sm" />
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate font-bold">{must.name}</span>
+                  <span className="text-[13px] text-muted">In every look</span>
+                </div>
+                <IconButton label="Remove" onClick={() => setPlan({ mustInclude: null })}>
+                  <X weight="bold" className="size-4" />
+                </IconButton>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                disabled={!clean.length}
+                className="flex items-center justify-center gap-2 rounded-sm border-[1.5px] border-dashed border-line px-4 py-3 text-[14px] font-semibold text-ink-2 hover:border-ink/50 hover:text-ink disabled:opacity-40"
+              >
+                <Plus weight="bold" className="size-4" /> Pick one (optional)
+              </button>
+            )}
+          </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+          {!ready.ready && items.length > 0 && <Notice tone="warn">Add {ready.missing.join(' and ')} (or empty the wash) so Claude can build a full outfit.</Notice>}
+          {ready.ready && ready.missing.includes('shoes') && <Notice>No shoes in your closet yet. Fits will skip footwear until you add some.</Notice>}
+
           {busy ? (
-            <Button size="lg" variant="secondary" onClick={stop}>
-              <Square className="size-4 fill-current" /> Stop
+            <Button size="lg" variant="secondary" onClick={stop} className="w-full">
+              <Stop weight="fill" className="size-4" /> Stop
             </Button>
           ) : (
-            <Button size="lg" onClick={() => go()} disabled={!ready.ready || ai.text === null}>
-              <Sparkles className="size-5" /> {run.outfits.length ? 'Style me again' : 'Style me'}
+            <Button size="lg" onClick={() => go()} disabled={!ready.ready || ai.text === null} className="w-full">
+              {run.outfits.length ? 'Build new fits' : 'Build my fit'} <ArrowRight weight="bold" className="size-5" />
             </Button>
           )}
           {busy && (
-            <span className="flex items-center gap-2 text-[14px] text-ink-2">
-              <Spinner />
-              {run.status === 'thinking' ? `Claude is going through your closet… ${elapsed ? `${elapsed}s` : ''}` : 'Laying out looks…'}
-            </span>
+            <p className="flex items-center gap-2 text-[14px] text-ink-2" role="status">
+              <Spinner className="size-4 text-accent" />
+              {run.status === 'thinking' ? `Claude is raiding your closet… ${elapsed ? `${elapsed}s` : ''}` : 'Laying out your fits…'}
+            </p>
           )}
-        </div>
-      </section>
+        </aside>
+      </div>
 
       <div ref={results} className="flex scroll-mt-24 flex-col gap-5">
         {run.status === 'error' && <Notice tone="error">{run.error}</Notice>}
+        {(run.outfits.length > 0 || run.status === 'thinking') && <h2 className="display text-[44px] sm:text-[64px]">Your fits</h2>}
         {run.status === 'thinking' && !run.outfits.length && (
-          <div className="grid gap-5 md:grid-cols-2" aria-hidden="true">
-            {[0, 1].map((i) => (
-              <div key={i} className="relative aspect-[5/4] overflow-hidden rounded-3xl bg-raised">
-                <div className="shimmer absolute inset-0" />
-              </div>
-            ))}
+          <div className="grid gap-4 md:grid-cols-2" aria-hidden="true">
+            <div className="relative aspect-[5/4] overflow-hidden rounded-sm bg-surface md:col-span-2 md:aspect-[16/7]">
+              <div className="shimmer absolute inset-0" />
+            </div>
           </div>
         )}
         {run.outfits.length > 0 && (
-          <div className="grid items-start gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid items-start gap-4 md:grid-cols-2">
             {run.outfits.map((o, i) => {
               const key = o.itemIds.join('|')
               const m = marks[key] ?? {}
@@ -400,6 +399,7 @@ export default function StyleMe({ items, itemsById, settings, taste, ai, actions
                   key={key}
                   outfit={o}
                   index={i}
+                  featured={i === 0}
                   itemsById={itemsById}
                   onOpenItem={onOpenItem}
                   worn={m.worn}
@@ -414,8 +414,8 @@ export default function StyleMe({ items, itemsById, settings, taste, ai, actions
           </div>
         )}
         {run.status === 'done' && run.outfits.length > 0 && (
-          <Button variant="secondary" className="self-center" onClick={() => go({ more: true })}>
-            <RefreshCw className="size-4" /> Three more ideas
+          <Button variant="secondary" className="self-start" onClick={() => go({ more: true })}>
+            <ArrowsClockwise weight="bold" className="size-4" /> Three more fits
           </Button>
         )}
       </div>

@@ -1,80 +1,79 @@
 @import 'tailwindcss';
 
 /*
- * Layout: a dressing-room rail. The closet is a photo grid of pieces; outfits
- * are laid out as flat-lays on a pressing board. Indigo for denim, one
- * selvedge-red thread for the things you love.
+ * Layout: a streetwear drop. Huge condensed headlines, photos doing the
+ * talking, hard 4px corners everywhere, one safety-orange accent.
+ * Dark studio by default (clothes pop on it), a concrete-grey day mode.
+ * Shape rule: every rectangle is 4px; only colour swatches are round.
  */
 :root {
-  --page: #f4f5f9;
-  --surface: #ffffff;
-  --raised: #eceef5;
-  --board: #e6e8f0;
-  --line: #d9dce8;
-  --ink: #191c38;
-  --ink-2: #41466a;
-  --muted: #5f6485;
-  --accent: #2b3480;
-  --accent-ink: #2b3480;
-  --on-accent: #ffffff;
-  --selvedge: #d6453d;
-  --good: #1d7048;
-  --warn: #965400;
-  --critical: #b42318;
-  --scrim: rgb(14 16 36 / 0.45);
-  --shadow: 0 1px 2px rgb(25 28 56 / 0.06), 0 8px 24px -12px rgb(25 28 56 / 0.18);
+  --page: #121212;
+  --surface: #1b1b1b;
+  --raised: #252525;
+  --board: #202020;
+  --line: #333333;
+  --ink: #f4f4f0;
+  --ink-2: #d0d0cb;
+  --muted: #9d9d97;
+  --accent: #ff6a1a;
+  --accent-ink: #ff8c4d;
+  --on-accent: #121212;
+  --good: #5fd38d;
+  --warn: #f2b84b;
+  --critical: #ff5c7a;
+  --scrim: rgb(0 0 0 / 0.66);
+  --shadow: 0 18px 40px -18px rgb(0 0 0 / 0.7);
 
-  --display: 'Bodoni Moda', 'Bodoni 72', Didot, 'Times New Roman', serif;
-  --sans: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --page: #0f1124;
-    --surface: #171a33;
-    --raised: #20243f;
-    --board: #1b1f3a;
-    --line: #2d3254;
-    --ink: #eef0fa;
-    --ink-2: #c5c9e0;
-    --muted: #9ea3c2;
-    --accent: #8f9bff;
-    --accent-ink: #aab3ff;
-    --on-accent: #0f1124;
-    --selvedge: #ff7d70;
-    --good: #5fd39a;
-    --warn: #f2b155;
-    --critical: #ff8f85;
-    --scrim: rgb(4 5 14 / 0.62);
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 28px -12px rgb(0 0 0 / 0.6);
-    color-scheme: dark;
-  }
-}
-
-:root[data-theme='dark'] {
-  --page: #0f1124;
-  --surface: #171a33;
-  --raised: #20243f;
-  --board: #1b1f3a;
-  --line: #2d3254;
-  --ink: #eef0fa;
-  --ink-2: #c5c9e0;
-  --muted: #9ea3c2;
-  --accent: #8f9bff;
-  --accent-ink: #aab3ff;
-  --on-accent: #0f1124;
-  --selvedge: #ff7d70;
-  --good: #5fd39a;
-  --warn: #f2b155;
-  --critical: #ff8f85;
-  --scrim: rgb(4 5 14 / 0.62);
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 28px -12px rgb(0 0 0 / 0.6);
+  --sans: 'Archivo', 'Arial Narrow', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --display: 'Archivo', 'Avenir Next Condensed', 'Arial Narrow', 'sans-serif-condensed', 'Roboto Condensed', system-ui, sans-serif;
+  --mono: 'Space Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  --radius: 4px;
   color-scheme: dark;
 }
 
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --page: #ebebe8;
+    --surface: #f8f8f6;
+    --raised: #dfdfdb;
+    --board: #d9d9d4;
+    --line: #c8c8c3;
+    --ink: #151515;
+    --ink-2: #3a3a38;
+    --muted: #5c5c59;
+    --accent: #ff6a1a;
+    --accent-ink: #b5420a;
+    --on-accent: #151515;
+    --good: #1d7a45;
+    --warn: #885800;
+    --critical: #c4173f;
+    --scrim: rgb(20 20 20 / 0.5);
+    --shadow: 0 18px 40px -20px rgb(40 30 20 / 0.35);
+    color-scheme: light;
+  }
+}
+
+:root[data-theme='light'] {
+  --page: #ebebe8;
+  --surface: #f8f8f6;
+  --raised: #dfdfdb;
+  --board: #d9d9d4;
+  --line: #c8c8c3;
+  --ink: #151515;
+  --ink-2: #3a3a38;
+  --muted: #5c5c59;
+  --accent: #ff6a1a;
+  --accent-ink: #b5420a;
+  --on-accent: #151515;
+  --good: #1d7a45;
+  --warn: #885800;
+  --critical: #c4173f;
+  --scrim: rgb(20 20 20 / 0.5);
+  --shadow: 0 18px 40px -20px rgb(40 30 20 / 0.35);
+  color-scheme: light;
+}
+
 @theme inline {
-  --font-display: var(--display);
   --font-sans: var(--sans);
   --font-mono: var(--mono);
 
@@ -89,12 +88,12 @@
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
   --color-on-accent: var(--on-accent);
-  --color-selvedge: var(--selvedge);
   --color-good: var(--good);
   --color-warn: var(--warn);
   --color-critical: var(--critical);
   --color-scrim: var(--scrim);
 
+  --radius-sm: var(--radius);
   --shadow-card: var(--shadow);
 }
 
@@ -129,6 +128,10 @@ body {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
+  ::selection {
+    background: var(--accent);
+    color: var(--on-accent);
+  }
   input[type='number']::-webkit-outer-spin-button,
   input[type='number']::-webkit-inner-spin-button {
     -webkit-appearance: none;
@@ -145,28 +148,51 @@ body {
   }
 }
 
-/* Selvedge denim's finished edge: a white band with one red thread. Used once, under the header. */
-.selvedge {
-  height: 5px;
-  background: linear-gradient(
-    to bottom,
-    var(--surface) 0 1.5px,
-    var(--selvedge) 1.5px 3px,
-    var(--surface) 3px 100%
-  );
-  border-bottom: 1px solid var(--line);
+/* Extra-condensed black caps: the drop-poster voice. Archivo's width axis does the work. */
+.display {
+  font-family: var(--display);
+  font-stretch: 62%;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.005em;
+  line-height: 0.88;
+}
+/* The same voice, less shouty: condensed bold for small headings and buttons. */
+.condensed {
+  font-family: var(--display);
+  font-stretch: 75%;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
 }
 
 .tnum {
   font-variant-numeric: tabular-nums;
 }
 
-/* Care-label style: small mono caps. */
-.label {
+/* Small mono metadata (dates, counts, types). Rationed. */
+.meta {
   font-family: var(--mono);
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+/*
+ * A swing tag, like the one on new clothes: notched end with a punched hole.
+ * Shows how often a piece has been worn.
+ */
+.hangtag {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px 0 15px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font: 700 11px/1 var(--mono);
+  clip-path: polygon(7px 0, 100% 0, 100% 100%, 7px 100%, 0 50%);
+  -webkit-mask: radial-gradient(circle 2.6px at 8px 50%, transparent 2.5px, #000 2.8px);
+  mask: radial-gradient(circle 2.6px at 8px 50%, transparent 2.5px, #000 2.8px);
 }
 
 .no-scrollbar {
@@ -179,7 +205,7 @@ body {
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -187,12 +213,27 @@ body {
   }
 }
 .rise {
-  animation: rise 220ms ease-out both;
+  animation: rise 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes drop-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* An outfit landing on the board as Claude finishes writing it. */
+.drop-in {
+  animation: drop-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes sheet-up {
   from {
-    transform: translateY(24px);
+    transform: translateY(28px);
     opacity: 0.4;
   }
   to {
@@ -201,7 +242,7 @@ body {
   }
 }
 .sheet-up {
-  animation: sheet-up 200ms ease-out both;
+  animation: sheet-up 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes shimmer {
@@ -213,9 +254,9 @@ body {
   }
 }
 .shimmer {
-  background: linear-gradient(90deg, transparent 0%, color-mix(in oklab, var(--surface) 55%, transparent) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, color-mix(in oklab, var(--ink) 9%, transparent) 50%, transparent 100%);
   background-size: 200% 100%;
-  animation: shimmer 1.6s linear infinite;
+  animation: shimmer 1.4s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -226,4 +267,8 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
+}
+
+.cap-first::first-letter {
+  text-transform: uppercase;
 }

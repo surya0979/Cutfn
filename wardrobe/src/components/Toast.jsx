@@ -1,4 +1,4 @@
-import { Check, Undo2 } from 'lucide-react'
+import { ArrowUUpLeft, Check } from '@phosphor-icons/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 /**
@@ -30,9 +30,9 @@ export default function Toast({ toast, onDismiss }) {
       <div
         key={toast.key}
         role="status"
-        className="rise pointer-events-auto flex max-w-md items-center gap-3 rounded-full bg-ink py-2 pr-2 pl-4 text-[14px] text-page shadow-card"
+        className="rise pointer-events-auto flex max-w-md items-center gap-3 rounded-sm border-l-[3px] border-accent bg-ink py-2 pr-2 pl-3.5 text-[14px] font-medium text-page shadow-card"
       >
-        <Check className="size-4 shrink-0" aria-hidden />
+        <Check weight="bold" className="size-4 shrink-0" aria-hidden />
         <span className="min-w-0">{toast.message}</span>
         {toast.onUndo && (
           <button
@@ -41,9 +41,9 @@ export default function Toast({ toast, onDismiss }) {
               toast.onUndo()
               onDismiss()
             }}
-            className="label inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 font-medium text-page hover:bg-page/15"
+            className="condensed inline-flex shrink-0 items-center gap-1 rounded-sm px-3 py-1.5 text-[13px] text-page underline decoration-accent decoration-2 underline-offset-4 hover:bg-page/15"
           >
-            <Undo2 className="size-3.5" aria-hidden /> Undo
+            <ArrowUUpLeft weight="bold" className="size-3.5" aria-hidden /> Undo
           </button>
         )}
       </div>

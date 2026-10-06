@@ -85,7 +85,7 @@ describe('stylist prompt and replies', () => {
     expect(numbers.size).toBe(closet.length)
     expect(numbers.get(numbers.size)).toBe('coat')
     expect(prompt).toContain('Occasion: Hangout')
-    expect(prompt).toContain('Hot, 29–34°C')
+    expect(prompt).toContain('Hot, 29-34°C')
   })
 
   it('reads one outfit per line while streaming, ignoring half-written lines', () => {

@@ -1,18 +1,18 @@
-import { Heart, Pencil, RefreshCw, Sparkles, Trash2, WashingMachine } from 'lucide-react'
+import { ArrowsClockwise, Heart, MagicWand, PencilSimple, Trash, WashingMachine } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { relativeDays, todayKey } from '../lib/dates.js'
 import { washable } from '../lib/outfits.js'
-import { COLORS, FITS, FORMALITY, GROUPS, MATERIALS, PATTERNS, STYLES, TYPES, WARMTH, colorLabel, colorWord, typeLabel } from '../lib/vocab.js'
+import { COLORS, FITS, FORMALITY, GROUPS, MATERIALS, PATTERNS, STYLES, TYPES, WARMTH, colorLabel, colorWord, typeLabel, typeOf } from '../lib/vocab.js'
 import { ItemImage } from './Pieces.jsx'
 import { Button, Chip, Field, inputClass, Notice, Segmented, Sheet, Spinner, Swatch } from './ui.jsx'
 
 const formatPrice = (n) => `₹${Math.round(n).toLocaleString('en-IN')}`
 
-function Row({ label, children }) {
+function Row({ label, children, wide = false }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-line py-2.5 last:border-0">
-      <dt className="label shrink-0 text-muted">{label}</dt>
-      <dd className="min-w-0 text-right text-[15px] text-ink">{children}</dd>
+    <div className={`flex min-w-0 flex-col gap-1 ${wide ? 'col-span-2' : ''}`}>
+      <dt className="meta text-muted">{label}</dt>
+      <dd className="min-w-0 text-[15px] font-semibold text-ink cap-first">{children}</dd>
     </div>
   )
 }
@@ -21,14 +21,14 @@ function Details({ item }) {
   const fmt = FORMALITY.find((f) => f.value === item.formality)?.label
   const warm = WARMTH.find((w) => w.value === item.warmth)?.label
   return (
-    <dl className="flex flex-col">
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-4">
       <Row label="Type">
         {typeLabel(item.category)}
-        {item.subtype ? <span className="text-muted"> · {item.subtype}</span> : null}
+        {item.subtype ? <span className="block text-[13.5px] font-normal text-muted">{item.subtype}</span> : null}
       </Row>
       {item.colors?.length > 0 && (
         <Row label="Colours">
-          <span className="inline-flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+          <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
             {item.colors.map((c) => (
               <span key={c} className="inline-flex items-center gap-1.5">
                 <Swatch color={c} size={13} /> {colorLabel(c)}
@@ -38,14 +38,18 @@ function Details({ item }) {
         </Row>
       )}
       {(item.material || (item.pattern && item.pattern !== 'solid')) && (
-        <Row label="Fabric">{[item.material, item.pattern !== 'solid' ? item.pattern : null].filter(Boolean).join(' · ')}</Row>
+        <Row label="Fabric">{[item.material, item.pattern !== 'solid' ? item.pattern : null].filter(Boolean).join(', ')}</Row>
       )}
       {item.fit && <Row label="Fit">{item.fit}</Row>}
       {fmt && <Row label="Formality">{fmt}</Row>}
       {warm && <Row label="Warmth">{warm}</Row>}
       {item.styles?.length > 0 && <Row label="Style">{item.styles.join(', ')}</Row>}
       {item.brand && <Row label="Brand">{item.brand}</Row>}
-      {item.notes && <Row label="Notes">{item.notes}</Row>}
+      {item.notes && (
+        <Row label="Notes" wide>
+          {item.notes}
+        </Row>
+      )}
     </dl>
   )
 }
@@ -106,7 +110,7 @@ function EditForm({ draft, setDraft }) {
         <Field label="Pattern">
           {(id) => (
             <select id={id} value={draft.pattern ?? ''} onChange={(e) => set({ pattern: e.target.value || null })} className={inputClass}>
-              <option value="">—</option>
+              <option value="">Not set</option>
               {PATTERNS.map((p) => (
                 <option key={p}>{p}</option>
               ))}
@@ -116,7 +120,7 @@ function EditForm({ draft, setDraft }) {
         <Field label="Fabric">
           {(id) => (
             <select id={id} value={draft.material ?? ''} onChange={(e) => set({ material: e.target.value || null })} className={inputClass}>
-              <option value="">—</option>
+              <option value="">Not set</option>
               {MATERIALS.map((p) => (
                 <option key={p}>{p}</option>
               ))}
@@ -126,7 +130,7 @@ function EditForm({ draft, setDraft }) {
         <Field label="Fit">
           {(id) => (
             <select id={id} value={draft.fit ?? ''} onChange={(e) => set({ fit: e.target.value || null })} className={inputClass}>
-              <option value="">—</option>
+              <option value="">Not set</option>
               {FITS.map((p) => (
                 <option key={p}>{p}</option>
               ))}
@@ -230,27 +234,27 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
   ) : (
     <div className="flex flex-col gap-2">
       <Button onClick={() => onStyle(item)} disabled={!item.category || pending}>
-        <Sparkles className="size-4" /> Style this piece
+        <MagicWand weight="bold" className="size-5" /> Style this piece
       </Button>
       <div className="grid grid-cols-4 gap-2">
         <QuickAction
           label={item.favorite ? 'Loved' : 'Love'}
           active={item.favorite}
           onClick={() => actions.updateItem(item.id, { favorite: !item.favorite })}
-          icon={<Heart className={`size-5 ${item.favorite ? 'fill-current text-selvedge' : ''}`} />}
+          icon={<Heart weight={item.favorite ? 'fill' : 'regular'} className={`size-6 ${item.favorite ? 'text-accent' : ''}`} />}
         />
         <QuickAction
-          label={item.laundry ? 'In wash' : 'To wash'}
+          label={item.laundry ? 'In the wash' : 'Wash it'}
           active={item.laundry}
           disabled={!washable(item.category) && !item.laundry}
           onClick={() => {
             actions.setLaundry([item.id], !item.laundry)
-            showToast({ message: item.laundry ? 'Back in the closet' : 'Moved to the laundry' })
+            showToast({ message: item.laundry ? 'Back in the closet' : 'Into the wash' })
           }}
-          icon={<WashingMachine className="size-5" />}
+          icon={<WashingMachine weight={item.laundry ? 'fill' : 'regular'} className="size-6" />}
         />
-        <QuickAction label="Edit" onClick={() => setEditing(true)} icon={<Pencil className="size-5" />} />
-        <QuickAction label="Delete" onClick={remove} icon={<Trash2 className="size-5" />} danger />
+        <QuickAction label="Edit" onClick={() => setEditing(true)} icon={<PencilSimple className="size-6" />} />
+        <QuickAction label="Delete" onClick={remove} icon={<Trash className="size-6" />} danger />
       </div>
     </div>
   )
@@ -259,14 +263,20 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
     <Sheet open={open} onClose={onClose} title={editing ? 'Edit piece' : item.name || (pending ? 'New piece' : 'Untitled piece')} footer={footer} wide>
       <div className="grid gap-5 sm:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
         <div className="flex flex-col gap-3">
-          <div className="overflow-hidden rounded-2xl bg-board">
+          <div className="overflow-hidden rounded-sm bg-board">
             <ItemImage item={item} full fit="contain" className={`aspect-[4/5] w-full sm:max-h-none ${editing ? 'max-h-[24dvh]' : 'max-h-[40dvh]'}`} />
           </div>
           {!editing && (
-            <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="grid grid-cols-3 gap-1.5">
               <Stat label="Worn" value={`${item.wearCount ?? 0}×`} />
               <Stat label="Last worn" value={relativeDays(item.lastWorn, todayKey())} />
-              <Stat label="Per wear" value={cpw ? formatPrice(cpw) : item.price ? formatPrice(item.price) : '—'} />
+              {cpw || item.price ? (
+                <Stat label="Per wear" value={formatPrice(cpw ?? item.price)} />
+              ) : washable(item.category) ? (
+                <Stat label="Till the wash" value={item.laundry ? 'Now' : `${Math.max(0, typeOf(item.category).wash - (item.wearsSinceWash ?? 0))}×`} />
+              ) : (
+                <Stat label="Category" value={typeLabel(item.category).split(' / ')[0]} />
+              )}
             </div>
           )}
         </div>
@@ -282,7 +292,7 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
               <p>{item.aiError || 'Claude couldn’t tag this piece.'}</p>
               {canTag && (
                 <Button size="sm" variant="secondary" className="self-start" onClick={() => uploader.retag(item)}>
-                  <RefreshCw className="size-4" /> Retry tagging
+                  <ArrowsClockwise weight="bold" className="size-4" /> Retry tagging
                 </Button>
               )}
             </Notice>
@@ -298,10 +308,10 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
               <>
                 {item.description && <p className="text-[15px] text-ink-2">{item.description}</p>}
                 <Details item={item} />
-                {item.laundry && <p className="label text-muted">In the laundry · left out of outfit ideas</p>}
+                {item.laundry && <p className="text-[14px] text-muted">In the wash, so it’s left out of outfit ideas.</p>}
                 {canTag && !pending && (
-                  <button type="button" onClick={() => uploader.retag(item)} className="label inline-flex items-center gap-1.5 self-start text-muted hover:text-ink">
-                    <RefreshCw className="size-3.5" /> Re-tag from photo
+                  <button type="button" onClick={() => uploader.retag(item)} className="meta inline-flex items-center gap-1.5 self-start text-muted hover:text-ink">
+                    <ArrowsClockwise weight="bold" className="size-3.5" /> Re-tag from photo
                   </button>
                 )}
               </>
@@ -315,9 +325,9 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
 
 function Stat({ label, value }) {
   return (
-    <div className="flex flex-col gap-0.5 rounded-xl bg-raised px-2 py-2">
-      <span className="label text-muted">{label}</span>
-      <span className="truncate text-[15px] font-semibold tnum">{value}</span>
+    <div className="flex min-w-0 flex-col gap-1.5 rounded-sm bg-surface px-3 py-2.5">
+      <span className="meta text-muted">{label}</span>
+      <span className="display truncate pb-0.5 text-[24px] tnum">{value}</span>
     </div>
   )
 }
@@ -329,8 +339,8 @@ function QuickAction({ label, icon, onClick, active, danger, disabled }) {
       onClick={onClick}
       disabled={disabled}
       aria-pressed={active}
-      className={`flex flex-col items-center gap-1 rounded-2xl border px-1 py-2 text-[12.5px] font-medium transition-colors disabled:opacity-40 ${
-        danger ? 'border-line text-critical hover:bg-critical/10' : active ? 'border-ink/40 bg-raised text-ink' : 'border-line text-ink-2 hover:bg-raised hover:text-ink'
+      className={`condensed flex flex-col items-center gap-1.5 rounded-sm border-[1.5px] px-1 pt-2.5 pb-2 text-[12px] transition-colors active:translate-y-px disabled:opacity-40 ${
+        danger ? 'border-line text-critical hover:border-critical' : active ? 'border-ink bg-ink text-page' : 'border-line text-ink-2 hover:border-ink/60 hover:text-ink'
       }`}
     >
       {icon}

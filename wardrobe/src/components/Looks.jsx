@@ -1,10 +1,10 @@
-import { Plus, Shirt, Sparkles, Trash2 } from 'lucide-react'
+import { ArrowRight, Plus, Trash, TShirt } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState } from 'react'
 import { relativeDays, todayKey } from '../lib/dates.js'
 import { canonicalOrder, dedupeBySlot, isComplete } from '../lib/outfits.js'
 import { OCCASIONS, occasionLabel, typeLabel } from '../lib/vocab.js'
 import { ItemTile, OutfitBoard } from './Pieces.jsx'
-import { Button, Chip, Field, inputClass, Notice, Sheet } from './ui.jsx'
+import { Button, Chip, Field, inputClass, Notice, PageTitle, Sheet } from './ui.jsx'
 
 function LookSheet({ look, open, onClose, itemsById, actions, showToast, onOpenItem }) {
   const [name, setName] = useState('')
@@ -18,7 +18,7 @@ function LookSheet({ look, open, onClose, itemsById, actions, showToast, onOpenI
 
   const wear = () => {
     const { undo, toLaundry } = actions.logWear({ date: todayKey(), itemIds: pieces.map((p) => p.id), title: look.name, lookId: look.id, occasion: look.occasion })
-    showToast({ message: `Logged for today${toLaundry.length ? `. ${toLaundry.length} to the laundry` : ''}`, onUndo: undo })
+    showToast({ message: `Logged for today${toLaundry.length ? `. ${toLaundry.length} into the wash` : ''}`, onUndo: undo })
     onClose()
   }
   const remove = () => {
@@ -43,10 +43,10 @@ function LookSheet({ look, open, onClose, itemsById, actions, showToast, onOpenI
       footer={
         <div className="flex gap-2">
           <Button variant="danger" onClick={remove} aria-label="Delete look">
-            <Trash2 className="size-4" />
+            <Trash weight="bold" className="size-4" />
           </Button>
           <Button className="flex-1" onClick={wear} disabled={!pieces.length}>
-            <Shirt className="size-4" /> Wear today
+            <TShirt weight="bold" className="size-4" /> Wear today
           </Button>
         </div>
       }
@@ -55,36 +55,33 @@ function LookSheet({ look, open, onClose, itemsById, actions, showToast, onOpenI
         <OutfitBoard itemIds={look.itemIds ?? []} itemsById={itemsById} onPieceClick={onOpenItem} />
         <div className="flex min-w-0 flex-col gap-4">
           <Field label="Name">{(id) => <input id={id} value={name} onChange={(e) => setName(e.target.value)} onBlur={rename} className={inputClass} maxLength={60} />}</Field>
-          <p className="label text-muted">
-            {look.occasion ? `${occasionLabel(look.occasion)} · ` : ''}
-            {look.wornCount ? `worn ${look.wornCount}× · last ${relativeDays(look.lastWorn)}` : 'not worn yet'}
-            {look.source === 'claude' ? ' · styled by Claude' : ''}
-          </p>
-          <ul className="flex flex-col divide-y divide-line">
+          <div className="flex flex-wrap gap-1.5">
+            {look.occasion && <span className="meta rounded-sm bg-raised px-2 py-1 text-ink-2">{occasionLabel(look.occasion)}</span>}
+            <span className="meta rounded-sm bg-raised px-2 py-1 text-ink-2">{look.wornCount ? `Worn ${look.wornCount}×, last ${relativeDays(look.lastWorn)}` : 'Not worn yet'}</span>
+            {look.source === 'claude' && <span className="meta rounded-sm bg-raised px-2 py-1 text-ink-2">Styled by Claude</span>}
+          </div>
+          <ul className="flex flex-col gap-1">
             {pieces.map((p) => (
               <li key={p.id}>
-                <button type="button" onClick={() => onOpenItem(p)} className="flex w-full items-center justify-between gap-3 py-2 text-left hover:text-accent-ink">
-                  <span className="min-w-0 truncate">{p.name}</span>
-                  <span className="label shrink-0 text-muted">{p.laundry ? 'in laundry' : typeLabel(p.category)}</span>
+                <button type="button" onClick={() => onOpenItem(p)} className="flex w-full items-center justify-between gap-3 rounded-sm px-2 py-1.5 text-left hover:bg-raised">
+                  <span className="min-w-0 truncate font-semibold">{p.name}</span>
+                  <span className="meta shrink-0 text-muted">{p.laundry ? 'In the wash' : typeLabel(p.category)}</span>
                 </button>
               </li>
             ))}
           </ul>
           {missing > 0 && <Notice tone="warn">{missing === 1 ? 'One piece' : `${missing} pieces`} from this look were deleted from your closet.</Notice>}
-          {inLaundry.length > 0 && <Notice>{inLaundry.map((p) => p.name).join(', ')} {inLaundry.length === 1 ? 'is' : 'are'} in the laundry.</Notice>}
+          {inLaundry.length > 0 && <Notice>{inLaundry.map((p) => p.name).join(', ')} {inLaundry.length === 1 ? 'is' : 'are'} in the wash.</Notice>}
           {look.why?.length > 0 && (
-            <ul className="flex flex-col gap-1.5 text-[14.5px] text-ink-2">
+            <div className="flex flex-col gap-2 border-l-[3px] border-accent pl-3.5 text-[15px]">
               {look.why.map((w) => (
-                <li key={w} className="flex gap-2.5">
-                  <span className="mt-[9px] size-1.5 shrink-0 rounded-full bg-accent" aria-hidden />
-                  {w}
-                </li>
+                <p key={w}>{w}</p>
               ))}
-            </ul>
+            </div>
           )}
           {look.tip && (
-            <p className="rounded-xl bg-raised px-3 py-2.5 text-[14px] text-ink-2">
-              <span className="label mr-2 text-muted">Tip</span>
+            <p className="text-[14px] text-ink-2">
+              <span className="condensed mr-2 text-[13px] text-ink">Styling tip</span>
               {look.tip}
             </p>
           )}
@@ -131,7 +128,7 @@ function LookBuilder({ open, onClose, items, itemsById, actions, showToast }) {
       wide
       footer={
         <div className="flex items-center gap-3">
-          <span className="label min-w-0 flex-1 text-muted">{picked.length ? `${picked.length} picked${complete ? '' : ' · add a top and bottom'}` : 'Tap pieces to add them'}</span>
+          <span className="min-w-0 flex-1 text-[14px] text-muted">{picked.length ? `${picked.length} picked${complete ? '' : '. Add a top and a bottom.'}` : 'Tap pieces to add them.'}</span>
           <Button onClick={save} disabled={picked.length < 2}>
             Save look
           </Button>
@@ -143,11 +140,11 @@ function LookBuilder({ open, onClose, items, itemsById, actions, showToast }) {
           <div className="grid gap-4 sm:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
             <OutfitBoard itemIds={ordered} itemsById={itemsById} size="sm" />
             <div className="flex flex-col gap-4">
-              <Field label="Name">{(id) => <input id={id} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Friday college fit" className={inputClass} maxLength={60} />}</Field>
+              <Field label="Name">{(id) => <input id={id} value={name} onChange={(e) => setName(e.target.value)} placeholder="Friday college fit" className={inputClass} maxLength={60} />}</Field>
               <Field label="Occasion">
                 <div className="flex flex-wrap gap-1.5">
                   {OCCASIONS.map((o) => (
-                    <Chip key={o.value} active={occasion === o.value} onClick={() => setOccasion(occasion === o.value ? null : o.value)} className="h-8 px-3 text-[13px]">
+                    <Chip key={o.value} active={occasion === o.value} onClick={() => setOccasion(occasion === o.value ? null : o.value)} className="h-8 text-[13px]">
                       {o.label}
                     </Chip>
                   ))}
@@ -172,45 +169,54 @@ export default function Looks({ looks, items, itemsById, actions, showToast, onO
   const [building, setBuilding] = useState(false)
   const open = useMemo(() => looks.find((l) => l.id === openId) ?? null, [looks, openId])
 
+  const canBuild = items.filter((i) => i.category).length >= 2
+
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex flex-col">
-          <h1 className="font-display text-[34px] leading-none font-semibold sm:text-[40px]">Saved looks</h1>
-          <p className="label mt-2 text-muted tnum">
-            {looks.length} look{looks.length === 1 ? '' : 's'}
-          </p>
-        </div>
-        <Button variant="secondary" onClick={() => setBuilding(true)} disabled={items.filter((i) => i.category).length < 2}>
-          <Plus className="size-4" /> Make a look
-        </Button>
-      </div>
+    <div className="flex flex-col gap-8">
+      <PageTitle
+        count={looks.length || null}
+        aside={
+          looks.length > 0 && (
+            <Button variant="secondary" onClick={() => setBuilding(true)} disabled={!canBuild}>
+              <Plus weight="bold" className="size-4" /> Make a look
+            </Button>
+          )
+        }
+      >
+        Saved looks
+      </PageTitle>
 
       {looks.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-line bg-surface px-5 py-10 text-center">
-          <h2 className="font-display text-[26px] leading-tight font-semibold">No saved looks yet</h2>
-          <p className="max-w-md text-ink-2">Save the outfits Claude suggests that you love, or put one together yourself. Wear them again in one tap.</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button onClick={onStyle}>
-              <Sparkles className="size-4" /> Get outfit ideas
+        <div className="rise flex flex-col items-start gap-5 rounded-sm bg-surface p-5 sm:p-8">
+          <h2 className="display text-[48px] sm:text-[64px]">No looks saved yet</h2>
+          <p className="max-w-[48ch] text-[16px] text-ink-2">Save the fits you love from Style me, or put one together yourself. Then wear them again in one tap.</p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" onClick={onStyle}>
+              Build my fit <ArrowRight weight="bold" className="size-5" />
             </Button>
-            <Button variant="secondary" onClick={() => setBuilding(true)} disabled={items.filter((i) => i.category).length < 2}>
+            <Button size="lg" variant="secondary" onClick={() => setBuilding(true)} disabled={!canBuild}>
               Make my own
             </Button>
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 lg:grid-cols-4">
-          {looks.map((look) => (
-            <button key={look.id} type="button" onClick={() => setOpenId(look.id)} className="group flex min-w-0 flex-col gap-2 text-left">
-              <div className="transition-transform duration-300 group-hover:-translate-y-0.5">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-3 lg:grid-cols-4">
+          {looks.map((look, i) => (
+            <button
+              key={look.id}
+              type="button"
+              onClick={() => setOpenId(look.id)}
+              className="group rise flex min-w-0 flex-col gap-2.5 text-left"
+              style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
+            >
+              <div className="transition-transform duration-300 group-hover:-translate-y-1">
                 <OutfitBoard itemIds={look.itemIds ?? []} itemsById={itemsById} size="sm" />
               </div>
-              <div className="flex min-w-0 flex-col gap-0.5 px-0.5">
-                <span className="truncate font-display text-[17px] leading-snug font-semibold italic">{look.name || 'Saved look'}</span>
-                <span className="label truncate text-muted">
+              <div className="flex min-w-0 flex-col gap-1">
+                <span className="display line-clamp-2 pb-0.5 text-[24px]">{look.name || 'Saved look'}</span>
+                <span className="meta truncate text-muted">
                   {look.occasion ? occasionLabel(look.occasion) : 'Any day'}
-                  {look.wornCount ? ` · ${look.wornCount}×` : ''}
+                  {look.wornCount ? `, worn ${look.wornCount}×` : ''}
                 </span>
               </div>
             </button>

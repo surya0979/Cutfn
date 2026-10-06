@@ -53,11 +53,11 @@ function Storage({ actions, open }) {
   const pct = usage.maxBytes ? Math.min(100, (usage.bytes / usage.maxBytes) * 100) : 0
   return (
     <div className="flex flex-col gap-2">
-      <div className="h-2 overflow-hidden rounded-full bg-raised">
-        <div className={`h-full rounded-full ${pct > 85 ? 'bg-critical' : 'bg-accent'}`} style={{ width: `${Math.max(pct, 1)}%` }} />
+      <div className="h-2 overflow-hidden rounded-sm bg-raised">
+        <div className={`h-full rounded-sm ${pct > 85 ? 'bg-critical' : 'bg-accent'}`} style={{ width: `${Math.max(pct, 1)}%` }} />
       </div>
       <p className="text-[13.5px] text-ink-2 tnum">
-        {usage.files} photos · {mb(usage.bytes)}
+        {usage.files} photos, {mb(usage.bytes)}
         {usage.maxBytes ? ` of ${mb(usage.maxBytes)}` : ''}
       </p>
       {orphans > 0 && (
@@ -153,7 +153,7 @@ export default function SettingsSheet({ open, onClose, settings, taste, actions,
         </Field>
 
         <div className="flex flex-col gap-2 border-t border-line pt-5">
-          <span className="label text-muted">Learned from your feedback</span>
+          <span className="condensed text-[15px]">Learned from your feedback</span>
           <p className="text-[14px] text-ink-2">
             {learned
               ? `${taste.liked?.length ?? 0} outfit${taste.liked?.length === 1 ? '' : 's'} you liked and ${taste.disliked?.length ?? 0} you passed on.`
@@ -168,13 +168,13 @@ export default function SettingsSheet({ open, onClose, settings, taste, actions,
 
         {mode === 'cloud' && (
           <div className="flex flex-col gap-2 border-t border-line pt-5">
-            <span className="label text-muted">Photo storage</span>
+            <span className="condensed text-[15px]">Photo storage</span>
             <Storage actions={actions} open={open} />
           </div>
         )}
 
-        <p className="label border-t border-line pt-5 text-muted">
-          {mode === 'cloud' ? 'Synced through claude.ai · private to your account' : 'Saved in this browser only'}
+        <p className="meta border-t border-line pt-5 text-muted">
+          {mode === 'cloud' ? 'Synced through claude.ai. Private to your account.' : 'Saved in this browser only'}
         </p>
       </div>
     </Sheet>
