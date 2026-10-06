@@ -149,7 +149,7 @@ export default function Closet({ items, ready, uploader, canTag, onOpenItem, onS
 
   return (
     <div
-      className="relative flex flex-col gap-8"
+      className="relative flex flex-col gap-10"
       onDragOver={(e) => {
         if ([...(e.dataTransfer?.types ?? [])].includes('Files')) {
           e.preventDefault()
@@ -161,13 +161,14 @@ export default function Closet({ items, ready, uploader, canTag, onOpenItem, onS
     >
       {picker}
 
-      {/* Hero: the count is the section's one accent number, Add photos the screen's one accent CTA. */}
+      {/* Hero: the count is the section's one accent number, Add photos the screen's one accent CTA
+          (an outline until it can be pressed: a faded accent reads pink, which is off-palette). */}
       <PageTitle
         count={ready && items.length ? items.length : null}
         sub={ready && items.length ? (counts.laundry ? `${counts.laundry} in the wash, ${clean} ready to wear.` : `All ${clean} ready to wear.`) : null}
         aside={
           items.length > 0 && (
-            <Button variant="primary" size="lg" onClick={openPicker} disabled={!ready}>
+            <Button variant={ready ? 'primary' : 'secondary'} size="lg" onClick={openPicker} disabled={!ready}>
               <span aria-hidden="true">+</span> Add photos
             </Button>
           )
@@ -264,10 +265,27 @@ export default function Closet({ items, ready, uploader, canTag, onOpenItem, onS
             </Notice>
           )}
 
-          {/* The work tiles: staggered on purpose. */}
+          {/* The work tiles: staggered on purpose. The add tile is outlined; the accent belongs to Add photos up top. */}
           <div className={GRID}>
+            {activeGroup === 'all' && !q && (
+              <div className={stagger(0)}>
+                <button
+                  type="button"
+                  onClick={openPicker}
+                  className="flex aspect-[4/5] w-full min-w-0 flex-col items-start justify-between border-4 border-ink bg-page p-3 text-left text-ink active:translate-x-[3px] active:translate-y-[3px]"
+                >
+                  <span aria-hidden="true" className="display text-[96px]">
+                    +
+                  </span>
+                  <span className="flex min-w-0 flex-col gap-2">
+                    <span className="display text-[28px] break-words">Add photos</span>
+                    <span className="text-[15px]">Tap, drop or paste</span>
+                  </span>
+                </button>
+              </div>
+            )}
             {shown.map((item, i) => (
-              <div key={item.id} className={stagger(i)}>
+              <div key={item.id} className={stagger(activeGroup === 'all' && !q ? i + 1 : i)}>
                 <ItemTile item={item} index={i} onOpen={onOpenItem} />
               </div>
             ))}
@@ -279,17 +297,21 @@ export default function Closet({ items, ready, uploader, canTag, onOpenItem, onS
             </div>
           )}
 
-          {/* The closer: one giant line, one clickable thing. Black: the accent belongs to Add photos. */}
+          {/* The closer: one giant line, and the whole slab is the one clickable thing. Black: the accent belongs to Add photos. */}
           {items.length >= 3 && activeGroup === 'all' && !q && (
-            <section className="mt-6 flex flex-col gap-6 border-t-4 border-ink pt-6">
-              <h2 className="display min-w-0 text-[clamp(56px,12vw,160px)] break-words">What’s the fit today?</h2>
-              <div className="flex flex-col items-start gap-4 md:ml-[42%]">
-                <p className="text-[16px]">Claude picks from your {clean} clean pieces.</p>
-                <Button variant="black" size="lg" onClick={onStyle}>
-                  Build my fit →
-                </Button>
-              </div>
-            </section>
+            <button
+              type="button"
+              onClick={onStyle}
+              className="mt-6 flex w-full min-w-0 flex-col gap-6 border-4 border-ink bg-ink px-4 pt-6 pb-5 text-left text-page active:translate-x-[3px] active:translate-y-[3px] sm:px-8 sm:pt-10 sm:pb-7"
+            >
+              <span className="display min-w-0 text-[clamp(56px,11vw,140px)] break-words">What’s the fit today?</span>
+              <span className="flex min-w-0 items-end justify-between gap-4 md:ml-[42%]">
+                <span className="text-[16px]">Claude picks from your {clean} clean pieces.</span>
+                <span aria-hidden="true" className="display shrink-0 text-[56px] sm:text-[88px]">
+                  →
+                </span>
+              </span>
+            </button>
           )}
         </>
       )}

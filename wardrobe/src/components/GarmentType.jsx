@@ -20,7 +20,7 @@ export default function GarmentType({ category, color, className = '', textClass
   const fg = solid && luminance(hex) < 0.35 ? '#f0ebe0' : '#0a0a0a'
   const word = category ? typeLabel(category).split(' / ')[0] : 'Untagged'
   return (
-    <div className={`flex items-end overflow-hidden p-2 [container-type:inline-size] ${className}`} style={{ background: bg, color: fg }}>
+    <div className={`keep-color flex items-end overflow-hidden p-2 [container-type:inline-size] ${className}`} style={{ background: bg, color: fg }}>
       <span className={`display break-words ${textClassName}`}>{word}</span>
     </div>
   )

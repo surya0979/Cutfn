@@ -119,8 +119,17 @@ body {
   label.inv:hover {
     filter: invert(1);
   }
+  /* Anything without its own background gets cream first, so the invert reads as a solid black block. */
+  button:not(:disabled):not(.red):not([class*='bg-']):hover,
+  a:not([class*='bg-']):hover {
+    background-color: var(--page);
+  }
   button:not(:disabled):not(.red):hover img,
   a:hover img {
+    filter: invert(1);
+  }
+  /* Colour blocks (a piece with no photo) keep their true colour, like photos. */
+  button:not(:disabled):not(.red):hover .keep-color {
     filter: invert(1);
   }
   button.red:not(:disabled):hover {
@@ -130,6 +139,8 @@ body {
   }
 }
 
+/* In a layer so Tailwind utilities (leading-*, text-*) can override them per use. */
+@layer components {
 /* Impact, uppercase. One weight only: never faux-bold it. */
 .display {
   font-family: var(--display);
@@ -137,7 +148,7 @@ body {
   font-synthesis: none;
   text-transform: uppercase;
   letter-spacing: 0;
-  line-height: 0.86;
+  line-height: 0.9;
 }
 
 .tnum {
@@ -167,6 +178,7 @@ body {
 
 .cap-first::first-letter {
   text-transform: uppercase;
+}
 }
 
 .no-scrollbar {

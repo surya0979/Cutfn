@@ -8,8 +8,9 @@ const PRESS = 'active:translate-x-[3px] active:translate-y-[3px]'
 
 /**
  * One suggested outfit as a lookbook page in a hard frame: the flat-lay on its
- * black board, the look number in giant red Impact (Claude ranks them,
- * strongest first: this is the card's one red number), the reasoning, actions.
+ * black board, the look number in giant Impact (Claude ranks them, strongest
+ * first; only 01, the featured card, is red: the section's one red number),
+ * the reasoning, actions.
  * outfit = { itemIds, title, why[], tip, missing, complete }
  */
 export default function OutfitCard({ outfit, itemsById, index, featured = false, onWear, onSave, onFeedback, onOpenItem, worn, saved, feedback }) {
@@ -22,28 +23,34 @@ export default function OutfitCard({ outfit, itemsById, index, featured = false,
       className={`slam grid min-w-0 ${featured ? 'md:col-span-2 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]' : ''}`}
       style={{ animationDelay: `${Math.min(index, 3) * 70}ms` }}
     >
-      {/* The board keeps its own frame; black fills below it when the text runs taller. */}
+      {/* On the wide featured spread the board stretches to the text's height instead of leaving a gap. */}
       <div className="min-w-0 bg-board">
-        <OutfitBoard itemIds={outfit.itemIds} itemsById={itemsById} onPieceClick={onOpenItem} />
+        <OutfitBoard itemIds={outfit.itemIds} itemsById={itemsById} onPieceClick={onOpenItem} className={featured ? 'md:aspect-auto md:h-full md:min-h-[420px]' : ''} />
       </div>
 
+      {/* Container units size the title to the column, so long words don't split mid-word. */}
       <div
-        className={`flex min-w-0 flex-col gap-5 border-4 border-t-0 border-ink bg-page p-4 sm:p-5 ${featured ? 'md:border-t-4 md:border-l-0 md:p-7' : ''}`}
+        className={`flex min-w-0 flex-col gap-5 border-4 border-t-0 border-ink bg-page p-4 [container-type:inline-size] sm:p-5 ${featured ? 'md:border-t-4 md:border-l-0 md:p-7' : ''}`}
       >
-        <div className="flex items-start gap-3">
+        {/* Only 01, the strongest look, takes the accent: one accent number for the whole set. */}
+        <div className={`flex items-start gap-3 ${featured ? 'md:flex-col md:gap-1' : ''}`}>
           <span
-            className={`display shrink-0 leading-[0.8] text-accent tnum ${featured ? 'text-[80px] md:text-[128px]' : 'text-[80px]'}`}
+            className={`display shrink-0 tnum ${featured ? 'text-[80px] text-accent md:text-[128px]' : 'text-[80px] text-ink'}`}
             aria-label={`Look ${index + 1}`}
           >
             {String(index + 1).padStart(2, '0')}
           </span>
-          <h3 className={`display min-w-0 pt-3 break-words ${featured ? 'text-[32px] md:pt-6 md:text-[52px]' : 'text-[30px]'}`}>{outfit.title}</h3>
+          <h3
+            className={`display min-w-0 pt-3 break-words ${featured ? 'text-[clamp(26px,10cqw,32px)] md:pt-0 md:text-[clamp(32px,13cqw,56px)]' : 'text-[clamp(24px,10cqw,30px)]'}`}
+          >
+            {outfit.title}
+          </h3>
         </div>
 
         <p className="text-[15px] leading-[2]">
           {pieces.map((p, i) => (
             <span key={p.id}>
-              <button type="button" onClick={() => onOpenItem(p)} className="text-left font-bold text-ink underline decoration-4 underline-offset-4">
+              <button type="button" onClick={() => onOpenItem(p)} className="bg-page text-left font-bold text-ink underline decoration-4 underline-offset-4">
                 {p.name}
               </button>
               {i < pieces.length - 1 && <span className="font-bold"> + </span>}
@@ -66,7 +73,8 @@ export default function OutfitCard({ outfit, itemsById, index, featured = false,
         )}
         {outfit.missing && (
           <p className="text-[15px]">
-            <span className="font-bold uppercase">Would finish it:</span> {outfit.missing}
+            <span className="display mr-2 text-[22px]">Would finish it:</span>
+            {outfit.missing}
           </p>
         )}
         {!outfit.complete && <Notice tone="warn">Missing a top or bottom from your closet.</Notice>}

@@ -7,7 +7,7 @@ import Looks from './components/Looks.jsx'
 import SettingsSheet from './components/SettingsSheet.jsx'
 import StyleMe from './components/StyleMe.jsx'
 import Toast, { useToast } from './components/Toast.jsx'
-import { Marquee, Notice } from './components/ui.jsx'
+import { IconButton, Marquee, Notice } from './components/ui.jsx'
 import { useAi } from './lib/ai.js'
 import { WardrobeContext, useWardrobeStore } from './lib/store.js'
 import { useUploader } from './lib/useUploader.js'
@@ -115,9 +115,9 @@ export default function App() {
             <div className="mb-5">
               <Notice tone="error" className="flex items-start justify-between gap-3">
                 <span>{store.error}</span>
-                <button type="button" onClick={store.clearError} className="display shrink-0 border-4 border-page px-2 text-[16px]">
-                  Dismiss
-                </button>
+                <IconButton label="Dismiss" onClick={store.clearError}>
+                  ×
+                </IconButton>
               </Notice>
             </div>
           )}

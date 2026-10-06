@@ -4,9 +4,10 @@ import { Button, Chip, Field, inputClass, Segmented, Sheet, Spinner, Swatch } fr
 
 const mb = (bytes) => `${(bytes / 1_048_576).toFixed(bytes < 10_485_760 ? 1 : 0)} MB`
 
+/** Square swatches joined edge to edge; a picked one gets a black ✓ block, a hovered one a + block. */
 function ColorPicker({ value = [], onChange, label }) {
   return (
-    <div className="flex flex-wrap gap-1" role="group" aria-label={label}>
+    <div className="flex flex-wrap pt-1 pl-1" role="group" aria-label={label}>
       {COLORS.filter((c) => c.value !== 'multicolor').map((c) => {
         const on = value.includes(c.value)
         return (
@@ -17,9 +18,13 @@ function ColorPicker({ value = [], onChange, label }) {
             aria-label={c.label}
             title={c.label}
             onClick={() => onChange(on ? value.filter((v) => v !== c.value) : [...value, c.value])}
-            className={`flex size-8 items-center justify-center rounded-full border-2 ${on ? 'border-ink' : 'border-transparent hover:border-line'}`}
+            className={`group relative -mt-1 -ml-1 flex size-11 shrink-0 active:translate-x-[3px] active:translate-y-[3px] ${on ? 'z-10' : 'hover:z-10'}`}
           >
-            <Swatch color={c.value} size={22} />
+            {/* A colour sample keeps its true colour under the hover invert, like a photo; only the mark inverts. */}
+            <Swatch color={c.value} size={44} className="group-hover:invert" />
+            <span aria-hidden="true" className={`absolute inset-0 items-center justify-center ${on ? 'flex' : 'hidden group-hover:flex'}`}>
+              <span className="flex size-6 items-center justify-center bg-ink text-[16px] font-bold text-page">{on ? '✓' : '+'}</span>
+            </span>
           </button>
         )
       })}
@@ -45,20 +50,24 @@ function Storage({ actions, open }) {
   if (info.status === 'none') return null
   if (info.status === 'loading')
     return (
-      <p className="flex items-center gap-2 text-[14px] text-muted">
+      <p className="flex items-center gap-2 text-[15px] font-bold">
         <Spinner /> Checking photo storage…
       </p>
     )
   const { usage, orphans, orphanBytes, prune } = info
   const pct = usage.maxBytes ? Math.min(100, (usage.bytes / usage.maxBytes) * 100) : 0
   return (
-    <div className="flex flex-col gap-2">
-      <div className="h-2 overflow-hidden rounded-sm bg-raised">
-        <div className={`h-full rounded-sm ${pct > 85 ? 'bg-critical' : 'bg-accent'}`} style={{ width: `${Math.max(pct, 1)}%` }} />
+    <div className="flex flex-col gap-3">
+      {/* The meter: a 4px box, a solid black bar. Nearly full is said in words. */}
+      <div className="h-8 border-4 border-ink bg-page">
+        <div className="h-full bg-ink" style={{ width: `${Math.max(pct, 1)}%` }} />
       </div>
-      <p className="text-[13.5px] text-ink-2 tnum">
-        {usage.files} photos, {mb(usage.bytes)}
-        {usage.maxBytes ? ` of ${mb(usage.maxBytes)}` : ''}
+      <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[15px] tnum">
+        <span>
+          {usage.files} photos, {mb(usage.bytes)}
+          {usage.maxBytes ? ` of ${mb(usage.maxBytes)}` : ''}
+        </span>
+        {pct > 85 && <span className="meta border-4 border-ink bg-ink px-2 py-1 text-page">Nearly full</span>}
       </p>
       {orphans > 0 && (
         <Button
@@ -105,22 +114,21 @@ export default function SettingsSheet({ open, onClose, settings, taste, actions,
       onClose={onClose}
       title="Your style profile"
       footer={
-        <Button className="w-full" onClick={save}>
+        <Button variant="primary" size="lg" className="w-full" onClick={save}>
           Save
         </Button>
       }
     >
-      <div className="flex flex-col gap-6">
-        <p className="text-[14.5px] text-ink-2">Claude reads this every time it styles you. The more it knows, the better the picks.</p>
+      <div className="flex flex-col gap-7">
+        <p className="text-[16px] md:mr-[22%]">Claude reads this every time it styles you. The more it knows, the better the picks.</p>
         <Field label="Dressing for">
           <Segmented label="Dressing for" options={DRESSING_FOR} value={draft.dressingFor ?? 'any'} onChange={(v) => set({ dressingFor: v })} />
         </Field>
         <Field label="Styles you like">
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {STYLES.map((s) => (
               <Chip
                 key={s}
-                className="h-8 px-3 text-[13px]"
                 active={draft.styles?.includes(s)}
                 onClick={() => set({ styles: draft.styles?.includes(s) ? draft.styles.filter((x) => x !== s) : [...(draft.styles ?? []), s] })}
               >
@@ -132,10 +140,11 @@ export default function SettingsSheet({ open, onClose, settings, taste, actions,
         <Field label="Colours you love">
           <ColorPicker label="Colours you love" value={draft.loveColors} onChange={(v) => set({ loveColors: v, avoidColors: (draft.avoidColors ?? []).filter((c) => !v.includes(c)) })} />
         </Field>
-        <Field label="Colours to avoid">
+        {/* Avoid sits off the left edge on wider screens: misaligned on purpose. */}
+        <Field label="Colours to avoid" className="md:ml-10">
           <ColorPicker label="Colours to avoid" value={draft.avoidColors} onChange={(v) => set({ avoidColors: v, loveColors: (draft.loveColors ?? []).filter((c) => !v.includes(c)) })} />
         </Field>
-        <Field label="City" hint="So Claude knows the climate and what people wear there.">
+        <Field label="City" hint="So Claude knows the climate and what people wear there." className="md:mr-[30%]">
           {(id) => <input id={id} value={draft.city ?? ''} onChange={(e) => set({ city: e.target.value })} placeholder="e.g. Pune" className={inputClass} maxLength={60} />}
         </Field>
         <Field label="Anything else Claude should know">
@@ -146,36 +155,34 @@ export default function SettingsSheet({ open, onClose, settings, taste, actions,
               value={draft.notes ?? ''}
               onChange={(e) => set({ notes: e.target.value })}
               placeholder="e.g. 5′9″, prefer relaxed fits, school uniform on weekdays, no shorts"
-              className={inputClass}
+              className={`${inputClass} block`}
               maxLength={400}
             />
           )}
         </Field>
 
-        <div className="flex flex-col gap-2 border-t border-line pt-5">
-          <span className="condensed text-[15px]">Learned from your feedback</span>
-          <p className="text-[14px] text-ink-2">
+        <section className="flex flex-col gap-3 border-t-4 border-ink pt-5">
+          <h3 className="display text-[32px]">Learned from your feedback</h3>
+          <p className="text-[15px] md:ml-[18%]">
             {learned
               ? `${taste.liked?.length ?? 0} outfit${taste.liked?.length === 1 ? '' : 's'} you liked and ${taste.disliked?.length ?? 0} you passed on.`
-              : 'Nothing yet. Use the thumbs up and down on outfit ideas and Claude adapts.'}
+              : 'Nothing yet. Tap ↑ or ↓ on outfit ideas and Claude adapts.'}
           </p>
           {learned > 0 && (
-            <Button size="sm" variant="ghost" className="self-start" onClick={() => actions.clearTaste()}>
+            <Button size="sm" variant="ghost" className="-ml-3 self-start bg-page md:ml-[calc(18%_-_0.75rem)]" onClick={() => actions.clearTaste()}>
               Forget my feedback
             </Button>
           )}
-        </div>
+        </section>
 
         {mode === 'cloud' && (
-          <div className="flex flex-col gap-2 border-t border-line pt-5">
-            <span className="condensed text-[15px]">Photo storage</span>
+          <section className="flex flex-col gap-3 border-t-4 border-ink pt-5">
+            <h3 className="display text-[32px]">Photo storage</h3>
             <Storage actions={actions} open={open} />
-          </div>
+          </section>
         )}
 
-        <p className="meta border-t border-line pt-5 text-muted">
-          {mode === 'cloud' ? 'Synced through claude.ai. Private to your account.' : 'Saved in this browser only'}
-        </p>
+        <p className="meta border-t-4 border-ink pt-4 text-muted">{mode === 'cloud' ? 'Synced through claude.ai. Private to your account.' : 'Saved in this browser only'}</p>
       </div>
     </Sheet>
   )

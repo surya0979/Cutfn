@@ -21,12 +21,12 @@ export function Button({ variant = 'secondary', size = 'md', className = '', chi
     primary: 'red border-4 border-accent bg-accent text-on-accent',
     black: 'border-4 border-ink bg-ink text-page',
     secondary: 'border-4 border-ink bg-page text-ink',
-    ghost: 'border-4 border-transparent text-ink underline decoration-4 underline-offset-4',
+    ghost: 'border-4 border-transparent bg-page text-ink underline decoration-4 underline-offset-4',
   }
   return (
     <button
       type="button"
-      className={`display inline-flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-35 ${PRESS} ${sizes[size]} ${styles[variant]} ${className}`}
+      className={`display inline-flex items-center justify-center gap-2 whitespace-nowrap disabled:border-dashed disabled:border-ink disabled:bg-page disabled:text-muted disabled:no-underline ${PRESS} ${sizes[size]} ${styles[variant]} ${className}`}
       {...props}
     >
       {children}
@@ -41,7 +41,7 @@ export function IconButton({ label, className = '', children, ...props }) {
       type="button"
       aria-label={label}
       title={label}
-      className={`display inline-flex size-11 shrink-0 items-center justify-center border-4 border-ink bg-page text-[24px] text-ink disabled:opacity-30 ${PRESS} ${className}`}
+      className={`inline-flex size-11 shrink-0 items-center justify-center border-4 border-ink bg-page text-[30px] leading-none font-bold text-ink disabled:border-dashed disabled:text-muted ${PRESS} ${className}`}
       {...props}
     >
       {children}

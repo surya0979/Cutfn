@@ -1,5 +1,4 @@
-import { ArrowRight, ArrowsClockwise, Camera, CloudRain, Drop, Plus, Stop, X } from '@phosphor-icons/react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { curateOutfits, fitCheck } from '../lib/ai.js'
 import { todayKey } from '../lib/dates.js'
 import { preparePhoto } from '../lib/images.js'
@@ -8,7 +7,7 @@ import { OCCASIONS, TIMES, WEATHER, occasionLabel, typeLabel } from '../lib/voca
 import { usePhotoPicker } from './Closet.jsx'
 import OutfitCard from './OutfitCard.jsx'
 import { ItemImage, ItemTile } from './Pieces.jsx'
-import { Button, Chip, Field, IconButton, inputClass, Notice, PageTitle, Sheet, Spinner } from './ui.jsx'
+import { Button, Chip, IconButton, inputClass, Notice, PageTitle, Section, Sheet, Spinner } from './ui.jsx'
 
 const PLAN_KEY = 'fitfn.plan'
 const DEFAULT_PLAN = { occasion: 'everyday', weather: 'warm', rain: false, humid: false, time: 'day', brief: '', mustInclude: null }
@@ -42,14 +41,36 @@ function useElapsed(running) {
   return secs
 }
 
+/**
+ * One question of the plan: a 4px rule, a Courier counter, the question in
+ * Impact. Every second question steps right on wider screens (deliberate
+ * misalignment); phones get one plain column. `asLabel` makes the heading the
+ * label of the control, which then receives its id.
+ */
+function Question({ n, title, asLabel = false, offset = false, children }) {
+  const id = useId()
+  const Heading = asLabel ? 'label' : 'h2'
+  return (
+    <div className="grid gap-3 border-t-4 border-ink pt-4 md:grid-cols-[64px_minmax(0,1fr)] md:gap-4">
+      <span className="meta text-muted md:pt-2">{n} / 04</span>
+      <div className={`flex min-w-0 flex-col gap-4 ${offset ? 'md:pl-12' : ''}`}>
+        <Heading htmlFor={asLabel ? id : undefined} className="display text-[30px] sm:text-[32px]">
+          {title}
+        </Heading>
+        {typeof children === 'function' ? children(id) : children}
+      </div>
+    </div>
+  )
+}
+
 function PiecePicker({ open, onClose, items, onPick }) {
   const [q, setQ] = useState('')
   const list = items.filter((i) => i.category && !i.laundry && (!q || `${i.name} ${typeLabel(i.category)}`.toLowerCase().includes(q.toLowerCase())))
   return (
     <Sheet open={open} onClose={onClose} title="Build around a piece" wide>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-5">
         <input id="pick-search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search your closet" className={inputClass} />
-        <div className="grid grid-cols-3 gap-x-2.5 gap-y-4 sm:grid-cols-4">
+        <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-3 md:[&>:nth-child(3n+2)]:mt-8">
           {list.map((item) => (
             <ItemTile
               key={item.id}
@@ -61,7 +82,12 @@ function PiecePicker({ open, onClose, items, onPick }) {
             />
           ))}
         </div>
-        {!list.length && <p className="py-6 text-center text-muted">No clean, tagged pieces match.</p>}
+        {!list.length && (
+          <div className="flex flex-col gap-2 border-4 border-ink px-4 py-6">
+            <p className="display text-[32px]">Nothing matches</p>
+            <p className="text-[16px]">Only clean, tagged pieces show up here.</p>
+          </div>
+        )}
       </div>
     </Sheet>
   )
@@ -99,52 +125,58 @@ function FitCheck({ plan, enabled }) {
   if (!enabled) return null
   const { status, preview, result, error } = state
 
+  // The closer: a giant Impact line across a 4px box, the score its one red number.
   return (
-    <section className="grid gap-5 rounded-sm border-[1.5px] border-line p-4 sm:p-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-center">
+    <section className="flex min-w-0 flex-col border-4 border-ink bg-page">
       {picker}
-      <div className="flex min-w-0 flex-col items-start gap-3">
-        <h2 className="display text-[44px] sm:text-[56px]">Rate my fit</h2>
-        <p className="max-w-[44ch] text-[15px] text-ink-2">Already dressed? Send a mirror pic for an honest score and two quick fixes. The photo goes to Claude and isn’t saved.</p>
-        <Button variant="secondary" onClick={open} disabled={status === 'thinking'}>
-          <Camera weight="bold" className="size-4" /> {status === 'idle' ? 'Send a mirror pic' : 'Try another'}
-        </Button>
-      </div>
-      {status !== 'idle' && (
-        <div className="rise grid grid-cols-[104px_minmax(0,1fr)] gap-4 sm:grid-cols-[132px_minmax(0,1fr)]">
-          {preview ? <img src={preview} alt="Your outfit" className="aspect-[3/4] w-full rounded-sm object-cover" /> : <div />}
-          <div className="flex min-w-0 flex-col gap-2.5">
-            {status === 'thinking' && (
-              <p className="flex items-center gap-2 text-ink-2">
-                <Spinner className="size-4 text-accent" /> Claude is looking…
-              </p>
-            )}
-            {status === 'error' && <p className="text-critical">{error}</p>}
-            {status === 'done' && result && (
-              <>
-                {result.score != null && (
-                  <p className="display text-[64px] text-accent-ink tnum">
-                    {result.score}
-                    <span className="text-[24px] text-muted">/10</span>
-                  </p>
-                )}
-                <p className="condensed text-[17px]">{result.verdict}</p>
-                {result.good.map((g) => (
-                  <p key={g} className="text-[14px]">
-                    <span className="font-bold text-good">Works: </span>
-                    {g}
-                  </p>
-                ))}
-                {result.tweaks.map((t) => (
-                  <p key={t} className="text-[14px]">
-                    <span className="font-bold text-accent-ink">Try: </span>
-                    {t}
-                  </p>
-                ))}
-              </>
-            )}
-          </div>
+      <h2 className="display border-b-4 border-ink px-4 pt-5 pb-3 text-[clamp(56px,11vw,140px)] break-words sm:px-6">Rate my fit</h2>
+      {/* Split from lg: at md the 5fr column is narrower than the lg button. */}
+      <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-8">
+        <div className="flex min-w-0 flex-col items-start gap-5 md:pl-10 lg:pt-6">
+          <p className="max-w-[46ch] text-[16px]">Already dressed? Send a mirror pic for an honest score and two quick fixes. The photo goes to Claude and isn’t saved.</p>
+          <Button variant="secondary" size="lg" onClick={open} disabled={status === 'thinking'}>
+            {status === 'idle' ? 'Send a mirror pic' : 'Try another'}
+          </Button>
         </div>
-      )}
+        {status !== 'idle' && (
+          <div className="slam grid min-w-0 gap-4 md:grid-cols-[150px_minmax(0,1fr)] md:gap-6">
+            {preview ? <img src={preview} alt="Your outfit" className="aspect-[3/4] w-[120px] border-4 border-ink object-cover md:w-full" /> : <div />}
+            <div className="flex min-w-0 flex-col gap-3">
+              {status === 'thinking' && (
+                <p className="flex items-center gap-2 text-[15px] font-bold">
+                  <Spinner /> Claude is looking…
+                </p>
+              )}
+              {status === 'error' && <Notice tone="error">{error}</Notice>}
+              {status === 'done' && result && (
+                <>
+                  {result.score != null && (
+                    <p className="display text-[112px] text-accent tnum">
+                      {result.score}
+                      <span className="ml-1 text-[36px] text-ink">/10</span>
+                    </p>
+                  )}
+                  <p className="display text-[28px] break-words">{result.verdict}</p>
+                  <div className="flex flex-col gap-2 border-l-4 border-ink pl-4">
+                    {result.good.map((g) => (
+                      <p key={g} className="text-[15px]">
+                        <span className="display mr-2 text-[22px]">Works:</span>
+                        {g}
+                      </p>
+                    ))}
+                    {result.tweaks.map((t) => (
+                      <p key={t} className="text-[15px]">
+                        <span className="display mr-2 text-[22px]">Try:</span>
+                        {t}
+                      </p>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </section>
   )
 }
@@ -249,35 +281,32 @@ export default function StyleMe({ items, itemsById, settings, taste, ai, actions
 
   if (ai.text === false) {
     return (
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-8">
         <PageTitle>Style me</PageTitle>
         <Notice>Outfit ideas come from Claude, which only works when this app is opened on claude.ai. Your closet, saved looks and history still work here.</Notice>
       </div>
     )
   }
 
-  const question = 'condensed text-[17px] text-ink'
-
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-10">
       <PageTitle sub={`Tell Claude the plan. It builds the fit from your ${clean.length} clean piece${clean.length === 1 ? '' : 's'}.`}>Style me</PageTitle>
 
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="flex min-w-0 flex-col gap-7">
-          <div className="flex flex-col gap-3">
-            <h2 className={question}>Where are you headed?</h2>
-            <div className="flex flex-wrap gap-1.5">
+      {/* Questions on the left, the plan panel on the right: an uneven 7 / 4 split that drops the panel out of line. */}
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,4fr)] lg:gap-10">
+        <div className="flex min-w-0 flex-col gap-8">
+          <Question n="01" title="Where are you headed?">
+            <div className="flex flex-wrap gap-2">
               {OCCASIONS.map((o) => (
                 <Chip key={o.value} active={plan.occasion === o.value} onClick={() => setPlan({ occasion: o.value })}>
                   {o.label}
                 </Chip>
               ))}
             </div>
-          </div>
+          </Question>
 
-          <div className="flex flex-col gap-3">
-            <h2 className={question}>How hot is it?</h2>
-            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+          <Question n="02" title="How hot is it?" offset>
+            <div className="grid grid-cols-2 items-start gap-2 md:grid-cols-3 md:gap-3 md:[&>:nth-child(3n+2)]:mt-6">
               {WEATHER.map((w) => {
                 const on = plan.weather === w.value
                 return (
@@ -286,42 +315,41 @@ export default function StyleMe({ items, itemsById, settings, taste, ai, actions
                     type="button"
                     aria-pressed={on}
                     onClick={() => setPlan({ weather: w.value })}
-                    className={`flex flex-col items-start gap-1.5 rounded-sm border-[1.5px] px-2.5 pt-2.5 pb-2 text-left transition-colors active:translate-y-px ${
-                      on ? 'border-accent bg-accent text-on-accent' : 'border-line text-ink hover:border-ink/50'
+                    className={`flex min-w-0 flex-col items-start gap-2 border-4 border-ink px-3 pt-3.5 pb-2.5 text-left [container-type:inline-size] active:translate-x-[3px] active:translate-y-[3px] ${
+                      on ? 'bg-ink text-page' : 'bg-page text-ink'
                     }`}
                   >
-                    <span className="display text-[26px] tnum">{w.range.replace('under ', '<')}</span>
-                    <span className={`text-[13px] font-semibold ${on ? '' : 'text-muted'}`}>{w.label}</span>
+                    <span className="display text-[clamp(26px,30cqw,52px)] whitespace-nowrap tnum">{w.range.replace('under ', '<')}</span>{' '}
+                    <span className={`text-[15px] font-bold ${on ? '' : 'text-muted'}`}>{w.label}</span>
                   </button>
                 )
               })}
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-2">
               <Chip active={plan.rain} onClick={() => setPlan({ rain: !plan.rain })}>
-                <CloudRain weight="bold" className="size-4" /> Rain likely
+                Rain likely
               </Chip>
               <Chip active={plan.humid} onClick={() => setPlan({ humid: !plan.humid })}>
-                <Drop weight="bold" className="size-4" /> Humid
+                Humid
               </Chip>
             </div>
-          </div>
+          </Question>
 
-          <div className="flex flex-col gap-3">
-            <h2 className={question}>When?</h2>
-            <div className="flex flex-wrap gap-1.5">
+          <Question n="03" title="When?">
+            <div className="flex flex-wrap gap-2">
               {TIMES.map((t) => (
                 <Chip key={t.value} active={plan.time === t.value} onClick={() => setPlan({ time: t.value })}>
                   {t.label}
                 </Chip>
               ))}
             </div>
-          </div>
+          </Question>
 
-          <Field label="Anything else Claude should know?">
+          <Question n="04" title="Anything else Claude should know?" asLabel offset>
             {(id) => (
               <textarea
                 id={id}
-                rows={2}
+                rows={3}
                 value={plan.brief}
                 onChange={(e) => setPlan({ brief: e.target.value })}
                 placeholder="Cousin’s mehendi, lots of sitting on the floor. Want to look sharp but stay cool."
@@ -329,94 +357,99 @@ export default function StyleMe({ items, itemsById, settings, taste, ai, actions
                 maxLength={300}
               />
             )}
-          </Field>
+          </Question>
         </div>
 
-        <aside className="flex flex-col gap-4 rounded-sm bg-surface p-4 lg:sticky lg:top-24">
-          <div className="flex flex-col gap-2">
-            <span className={question}>Build around a piece</span>
+        <aside className="flex min-w-0 flex-col border-4 border-ink bg-page lg:sticky lg:top-24 lg:mt-16">
+          <div className="flex flex-col gap-4 p-4">
+            <span className="display text-[30px]">Build around a piece</span>
             {must ? (
-              <div className="flex items-center gap-3 rounded-sm bg-raised p-2 pr-2.5">
-                <ItemImage item={must} className="size-14 shrink-0 rounded-sm" />
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate font-bold">{must.name}</span>
-                  <span className="text-[13px] text-muted">In every look</span>
+              <div className="flex items-center border-4 border-ink">
+                <ItemImage item={must} className="size-16 shrink-0 border-r-4 border-ink" />
+                <div className="flex min-w-0 flex-1 flex-col gap-1 px-3 py-2">
+                  <span className="display truncate text-[22px]">{must.name}</span>
+                  <span className="text-[15px] text-muted">In every look</span>
                 </div>
-                <IconButton label="Remove" onClick={() => setPlan({ mustInclude: null })}>
-                  <X weight="bold" className="size-4" />
+                <IconButton label="Remove" onClick={() => setPlan({ mustInclude: null })} className="mr-2">
+                  ×
                 </IconButton>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => setPickerOpen(true)}
-                disabled={!clean.length}
-                className="flex items-center justify-center gap-2 rounded-sm border-[1.5px] border-dashed border-line px-4 py-3 text-[14px] font-semibold text-ink-2 hover:border-ink/50 hover:text-ink disabled:opacity-40"
-              >
-                <Plus weight="bold" className="size-4" /> Pick one (optional)
-              </button>
+              <Button variant="secondary" onClick={() => setPickerOpen(true)} disabled={!clean.length} className="w-full">
+                <span aria-hidden="true">+</span> Pick one (optional)
+              </Button>
             )}
           </div>
 
-          {!ready.ready && items.length > 0 && <Notice tone="warn">Add {ready.missing.join(' and ')} (or empty the wash) so Claude can build a full outfit.</Notice>}
-          {ready.ready && ready.missing.includes('shoes') && <Notice>No shoes in your closet yet. Fits will skip footwear until you add some.</Notice>}
+          <div className="flex flex-col gap-4 border-t-4 border-ink p-4">
+            {!ready.ready && items.length > 0 && <Notice tone="warn">Add {ready.missing.join(' and ')} (or empty the wash) so Claude can build a full outfit.</Notice>}
+            {ready.ready && ready.missing.includes('shoes') && <Notice>No shoes in your closet yet. Fits will skip footwear until you add some.</Notice>}
 
-          {busy ? (
-            <Button size="lg" variant="secondary" onClick={stop} className="w-full">
-              <Stop weight="fill" className="size-4" /> Stop
-            </Button>
-          ) : (
-            <Button size="lg" onClick={() => go()} disabled={!ready.ready || ai.text === null} className="w-full">
-              {run.outfits.length ? 'Build new fits' : 'Build my fit'} <ArrowRight weight="bold" className="size-5" />
-            </Button>
-          )}
-          {busy && (
-            <p className="flex items-center gap-2 text-[14px] text-ink-2" role="status">
-              <Spinner className="size-4 text-accent" />
-              {run.status === 'thinking' ? `Claude is raiding your closet… ${elapsed ? `${elapsed}s` : ''}` : 'Laying out your fits…'}
-            </p>
-          )}
+            {busy ? (
+              <Button size="lg" variant="black" onClick={stop} className="w-full">
+                Stop
+              </Button>
+            ) : (
+              // The screen's one accent CTA, an outline until it can be pressed (a faded accent reads pink).
+              <Button size="lg" variant={!ready.ready || ai.text === null ? 'secondary' : 'primary'} onClick={() => go()} disabled={!ready.ready || ai.text === null} className="w-full">
+                {run.outfits.length ? 'Build new fits' : 'Build my fit'} <span aria-hidden="true">→</span>
+              </Button>
+            )}
+            {busy && (
+              <p className="flex items-center gap-2 text-[15px] font-bold" role="status">
+                <Spinner />
+                {run.status === 'thinking' ? `Claude is raiding your closet… ${elapsed ? `${elapsed}s` : ''}` : 'Laying out your fits…'}
+              </p>
+            )}
+          </div>
         </aside>
       </div>
 
-      <div ref={results} className="flex scroll-mt-24 flex-col gap-5">
+      <div ref={results} className="flex scroll-mt-24 flex-col gap-6">
         {run.status === 'error' && <Notice tone="error">{run.error}</Notice>}
-        {(run.outfits.length > 0 || run.status === 'thinking') && <h2 className="display text-[44px] sm:text-[64px]">Your fits</h2>}
-        {run.status === 'thinking' && !run.outfits.length && (
-          <div className="grid gap-4 md:grid-cols-2" aria-hidden="true">
-            <div className="relative aspect-[5/4] overflow-hidden rounded-sm bg-surface md:col-span-2 md:aspect-[16/7]">
-              <div className="shimmer absolute inset-0" />
-            </div>
-          </div>
-        )}
-        {run.outfits.length > 0 && (
-          <div className="grid items-start gap-4 md:grid-cols-2">
-            {run.outfits.map((o, i) => {
-              const key = o.itemIds.join('|')
-              const m = marks[key] ?? {}
-              return (
-                <OutfitCard
-                  key={key}
-                  outfit={o}
-                  index={i}
-                  featured={i === 0}
-                  itemsById={itemsById}
-                  onOpenItem={onOpenItem}
-                  worn={m.worn}
-                  saved={m.saved || alreadySaved(o)}
-                  feedback={m.feedback}
-                  onWear={() => wear(o, key)}
-                  onSave={() => save(o, key)}
-                  onFeedback={(kind, reason) => feedback(o, key, kind, reason)}
-                />
-              )
-            })}
-          </div>
-        )}
-        {run.status === 'done' && run.outfits.length > 0 && (
-          <Button variant="secondary" className="self-start" onClick={() => go({ more: true })}>
-            <ArrowsClockwise weight="bold" className="size-4" /> Three more fits
-          </Button>
+        {(run.outfits.length > 0 || run.status === 'thinking') && (
+          <Section title="Your fits" aside={<span className="meta text-muted">Ranked. Strongest first.</span>}>
+            {run.status === 'thinking' && !run.outfits.length && (
+              <div className="grid gap-4 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]" aria-hidden="true">
+                <div className="blink aspect-[5/4] border-4 border-ink bg-ink" />
+                <div className="flex flex-col gap-3 md:pt-12">
+                  <div className="blink h-20 w-28 border-4 border-ink bg-raised" />
+                  <div className="blink h-12 border-4 border-ink bg-raised" />
+                  <div className="blink h-12 w-3/4 border-4 border-ink bg-raised md:ml-8" />
+                  <div className="blink h-12 w-1/2 border-4 border-ink bg-ink" />
+                </div>
+              </div>
+            )}
+            {run.outfits.length > 0 && (
+              <div className="grid items-start gap-6 md:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] md:[&>:nth-child(2n+3)]:mt-12">
+                {run.outfits.map((o, i) => {
+                  const key = o.itemIds.join('|')
+                  const m = marks[key] ?? {}
+                  return (
+                    <OutfitCard
+                      key={key}
+                      outfit={o}
+                      index={i}
+                      featured={i === 0}
+                      itemsById={itemsById}
+                      onOpenItem={onOpenItem}
+                      worn={m.worn}
+                      saved={m.saved || alreadySaved(o)}
+                      feedback={m.feedback}
+                      onWear={() => wear(o, key)}
+                      onSave={() => save(o, key)}
+                      onFeedback={(kind, reason) => feedback(o, key, kind, reason)}
+                    />
+                  )
+                })}
+              </div>
+            )}
+            {run.status === 'done' && run.outfits.length > 0 && (
+              <Button variant="secondary" size="lg" className="self-start" onClick={() => go({ more: true })}>
+                <span aria-hidden="true">+</span> Three more fits
+              </Button>
+            )}
+          </Section>
         )}
       </div>
 
