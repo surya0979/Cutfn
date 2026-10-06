@@ -1,4 +1,3 @@
-import { ArrowUUpLeft, Check } from '@phosphor-icons/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 /**
@@ -23,17 +22,13 @@ export function useToast() {
   return { toast, show, dismiss }
 }
 
+/** A black slab with Courier text. Undo is the one action. */
 export default function Toast({ toast, onDismiss }) {
   if (!toast) return null
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] z-[60] flex justify-center px-4 md:bottom-6">
-      <div
-        key={toast.key}
-        role="status"
-        className="rise pointer-events-auto flex max-w-md items-center gap-3 rounded-sm border-l-[3px] border-accent bg-ink py-2 pr-2 pl-3.5 text-[14px] font-medium text-page shadow-card"
-      >
-        <Check weight="bold" className="size-4 shrink-0" aria-hidden />
-        <span className="min-w-0">{toast.message}</span>
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] z-[60] flex justify-center px-4 md:bottom-6">
+      <div key={toast.key} role="status" className="slam pointer-events-auto flex max-w-md items-stretch border-4 border-ink bg-ink text-[15px] font-bold text-page">
+        <span className="px-3 py-2.5">{toast.message}</span>
         {toast.onUndo && (
           <button
             type="button"
@@ -41,9 +36,9 @@ export default function Toast({ toast, onDismiss }) {
               toast.onUndo()
               onDismiss()
             }}
-            className="condensed inline-flex shrink-0 items-center gap-1 rounded-sm px-3 py-1.5 text-[13px] text-page underline decoration-accent decoration-2 underline-offset-4 hover:bg-page/15"
+            className="display shrink-0 border-l-4 border-page bg-page px-3 text-[18px] text-ink"
           >
-            <ArrowUUpLeft weight="bold" className="size-3.5" aria-hidden /> Undo
+            Undo
           </button>
         )}
       </div>

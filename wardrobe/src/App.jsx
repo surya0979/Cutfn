@@ -7,7 +7,7 @@ import Looks from './components/Looks.jsx'
 import SettingsSheet from './components/SettingsSheet.jsx'
 import StyleMe from './components/StyleMe.jsx'
 import Toast, { useToast } from './components/Toast.jsx'
-import { Notice } from './components/ui.jsx'
+import { Marquee, Notice } from './components/ui.jsx'
 import { useAi } from './lib/ai.js'
 import { WardrobeContext, useWardrobeStore } from './lib/store.js'
 import { useUploader } from './lib/useUploader.js'
@@ -82,6 +82,23 @@ export default function App() {
   )
   const closetUploader = useMemo(() => ({ ...uploader, addPhotos }), [uploader, addPhotos])
 
+  // The one marquee: live closet numbers, not slogans.
+  const marquee = useMemo(() => {
+    if (!ready) return ['Loading your closet']
+    if (!items.length) return ['Snap your clothes', 'Claude tags them', 'Claude builds the fit', 'Wear what you own']
+    const laundry = items.filter((i) => i.laundry).length
+    const clean = items.filter((i) => i.category && !i.laundry).length
+    const lastWear = wears[0]
+    return [
+      `${items.length} piece${items.length === 1 ? '' : 's'}`,
+      `${clean} ready to wear`,
+      laundry ? `${laundry} in the wash` : 'Nothing in the wash',
+      lastWear ? `Last fit: ${lastWear.title || 'untitled'}` : 'No fits logged yet',
+      `${looks.length} saved look${looks.length === 1 ? '' : 's'}`,
+      'Wear what you own',
+    ]
+  }, [ready, items, wears, looks])
+
   const onLaundryClean = (ids) => {
     actions.setLaundry(ids, false)
     showToast({ message: `${ids.length} piece${ids.length > 1 ? 's' : ''} back in the closet` })
@@ -91,15 +108,18 @@ export default function App() {
     <WardrobeContext.Provider value={store}>
       <div className="min-h-dvh bg-page text-ink">
         <Header tab={tab} onTab={setTab} mode={mode} onSettings={() => setSettingsOpen(true)} />
+        <Marquee items={marquee} />
 
-        <main className="mx-auto max-w-6xl px-4 pt-6 pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] sm:px-6 md:pb-16">
+        <main className="mx-auto max-w-[1200px] px-4 pt-6 pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] sm:px-6 md:pb-16">
           {store.error && (
-            <Notice tone="error" className="mb-5 flex items-start justify-between gap-3">
-              <span>{store.error}</span>
-              <button type="button" onClick={store.clearError} className="condensed shrink-0 text-[13px] text-muted hover:text-ink">
-                Dismiss
-              </button>
-            </Notice>
+            <div className="mb-5">
+              <Notice tone="error" className="flex items-start justify-between gap-3">
+                <span>{store.error}</span>
+                <button type="button" onClick={store.clearError} className="display shrink-0 border-4 border-page px-2 text-[16px]">
+                  Dismiss
+                </button>
+              </Notice>
+            </div>
           )}
 
           <div hidden={tab !== 'closet'}>

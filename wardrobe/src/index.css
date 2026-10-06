@@ -1,80 +1,35 @@
 @import 'tailwindcss';
 
 /*
- * Layout: a streetwear drop. Huge condensed headlines, photos doing the
- * talking, hard 4px corners everywhere, one safety-orange accent.
- * Dark studio by default (clothes pop on it), a concrete-grey day mode.
- * Shape rule: every rectangle is 4px; only colour swatches are round.
+ * Brutalist cream (see DESIGN.md). Three colours: raw cream, ink, raw red.
+ * Every border 4px ink, no radius, no shadow, no gradient, nothing smooth.
+ * Layout: asymmetric, staggered, deliberately misaligned; one column on phones.
+ * One visual world on purpose: the page is cream for every viewer.
  */
 :root {
-  --page: #121212;
-  --surface: #1b1b1b;
-  --raised: #252525;
-  --board: #202020;
-  --line: #333333;
-  --ink: #f4f4f0;
-  --ink-2: #d0d0cb;
-  --muted: #9d9d97;
-  --accent: #ff6a1a;
-  --accent-ink: #ff8c4d;
-  --on-accent: #121212;
-  --good: #5fd38d;
-  --warn: #f2b84b;
-  --critical: #ff5c7a;
-  --scrim: rgb(0 0 0 / 0.66);
-  --shadow: 0 18px 40px -18px rgb(0 0 0 / 0.7);
+  --page: #f0ebe0;
+  --surface: #f0ebe0;
+  --raised: #dcd7cb;
+  --board: #0a0a0a;
+  --line: #0a0a0a;
+  --ink: #0a0a0a;
+  --ink-2: #0a0a0a;
+  --muted: #57534b;
+  --accent: #e8000d;
+  --accent-ink: #e8000d;
+  --on-accent: #ffffff;
+  --good: #0a0a0a;
+  --warn: #0a0a0a;
+  --critical: #0a0a0a;
+  --scrim: rgb(10 10 10 / 0.72);
 
-  --sans: 'Archivo', 'Arial Narrow', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --display: 'Archivo', 'Avenir Next Condensed', 'Arial Narrow', 'sans-serif-condensed', 'Roboto Condensed', system-ui, sans-serif;
-  --mono: 'Space Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
-  --radius: 4px;
-  color-scheme: dark;
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme='dark']) {
-    --page: #ebebe8;
-    --surface: #f8f8f6;
-    --raised: #dfdfdb;
-    --board: #d9d9d4;
-    --line: #c8c8c3;
-    --ink: #151515;
-    --ink-2: #3a3a38;
-    --muted: #5c5c59;
-    --accent: #ff6a1a;
-    --accent-ink: #b5420a;
-    --on-accent: #151515;
-    --good: #1d7a45;
-    --warn: #885800;
-    --critical: #c4173f;
-    --scrim: rgb(20 20 20 / 0.5);
-    --shadow: 0 18px 40px -20px rgb(40 30 20 / 0.35);
-    color-scheme: light;
-  }
-}
-
-:root[data-theme='light'] {
-  --page: #ebebe8;
-  --surface: #f8f8f6;
-  --raised: #dfdfdb;
-  --board: #d9d9d4;
-  --line: #c8c8c3;
-  --ink: #151515;
-  --ink-2: #3a3a38;
-  --muted: #5c5c59;
-  --accent: #ff6a1a;
-  --accent-ink: #b5420a;
-  --on-accent: #151515;
-  --good: #1d7a45;
-  --warn: #885800;
-  --critical: #c4173f;
-  --scrim: rgb(20 20 20 / 0.5);
-  --shadow: 0 18px 40px -20px rgb(40 30 20 / 0.35);
+  --display: Impact, 'Anton', Haettenschweiler, 'Arial Narrow Bold', 'sans-serif-condensed', sans-serif;
+  --mono: 'Courier New', 'Courier Prime', Courier, monospace;
   color-scheme: light;
 }
 
 @theme inline {
-  --font-sans: var(--sans);
+  --font-sans: var(--mono);
   --font-mono: var(--mono);
 
   --color-page: var(--page);
@@ -92,15 +47,11 @@
   --color-warn: var(--warn);
   --color-critical: var(--critical);
   --color-scrim: var(--scrim);
-
-  --radius-sm: var(--radius);
-  --shadow-card: var(--shadow);
 }
 
 /*
  * Page base, deliberately outside @layer: claude.ai wraps the page in its own
- * unlayered starter styles (light color-scheme, dark text on an off-white
- * ground). Unlayered rules beat layered ones, so these must be unlayered too.
+ * unlayered starter styles. Unlayered rules beat layered ones.
  */
 html {
   background: var(--page);
@@ -111,26 +62,29 @@ body {
   min-height: 100dvh;
   background: var(--page);
   color: var(--ink);
-  font-family: var(--sans);
+  font-family: var(--mono);
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+}
+
+/* No radius, no shadow, no transition: anywhere. */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transition: none !important;
 }
 
 @layer base {
-  h1,
-  h2,
-  h3 {
-    text-wrap: balance;
-  }
   :focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
+    outline: 4px dashed var(--ink);
+    outline-offset: 3px;
   }
   ::selection {
-    background: var(--accent);
-    color: var(--on-accent);
+    background: var(--ink);
+    color: var(--page);
   }
   input[type='number']::-webkit-outer-spin-button,
   input[type='number']::-webkit-inner-spin-button {
@@ -140,59 +94,79 @@ body {
   input[type='number'] {
     -moz-appearance: textfield;
   }
+  select {
+    -webkit-appearance: none;
+    appearance: none;
+  }
   button {
     cursor: pointer;
   }
   button:disabled {
-    cursor: default;
+    cursor: not-allowed;
   }
 }
 
-/* Extra-condensed black caps: the drop-poster voice. Archivo's width axis does the work. */
+/*
+ * Hover: filter: invert(1) on every interactive element (pointer devices only,
+ * so a tap doesn't leave things inverted). Photos inside are counter-inverted
+ * so clothes keep their real colours. Red never inverts (that would be teal):
+ * red buttons carry .red and turn black instead.
+ */
+@media (hover: hover) {
+  button:not(:disabled):not(.red):hover,
+  a:hover,
+  select:hover,
+  label.inv:hover {
+    filter: invert(1);
+  }
+  button:not(:disabled):not(.red):hover img,
+  a:hover img {
+    filter: invert(1);
+  }
+  button.red:not(:disabled):hover {
+    background: var(--ink) !important;
+    color: var(--page) !important;
+    border-color: var(--ink) !important;
+  }
+}
+
+/* Impact, uppercase. One weight only: never faux-bold it. */
 .display {
   font-family: var(--display);
-  font-stretch: 62%;
-  font-weight: 900;
+  font-weight: 400;
+  font-synthesis: none;
   text-transform: uppercase;
-  letter-spacing: -0.005em;
-  line-height: 0.88;
-}
-/* The same voice, less shouty: condensed bold for small headings and buttons. */
-.condensed {
-  font-family: var(--display);
-  font-stretch: 75%;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
+  line-height: 0.86;
 }
 
 .tnum {
   font-variant-numeric: tabular-nums;
 }
 
-/* Small mono metadata (dates, counts, types). Rationed. */
+/* Small Courier metadata. */
 .meta {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
-/*
- * A swing tag, like the one on new clothes: notched end with a punched hole.
- * Shows how often a piece has been worn.
- */
+/* A swing tag cut square: notched end, no curves. Counts wears. */
 .hangtag {
   display: inline-flex;
   align-items: center;
-  height: 20px;
-  padding: 0 7px 0 15px;
-  background: var(--accent);
-  color: var(--on-accent);
-  font: 700 11px/1 var(--mono);
-  clip-path: polygon(7px 0, 100% 0, 100% 100%, 7px 100%, 0 50%);
-  -webkit-mask: radial-gradient(circle 2.6px at 8px 50%, transparent 2.5px, #000 2.8px);
-  mask: radial-gradient(circle 2.6px at 8px 50%, transparent 2.5px, #000 2.8px);
+  height: 24px;
+  padding: 0 8px 0 14px;
+  background: var(--ink);
+  color: var(--page);
+  font: 700 13px/1 var(--mono);
+  clip-path: polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 0 50%);
+}
+
+.cap-first::first-letter {
+  text-transform: uppercase;
 }
 
 .no-scrollbar {
@@ -202,73 +176,50 @@ body {
   display: none;
 }
 
-@keyframes rise {
+/* The one marquee: linear, endless, 25s a lap. */
+@keyframes marquee {
   from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 25s linear infinite;
+}
+
+/* Entrances jump in three hard steps instead of easing. */
+@keyframes slam {
+  from {
+    transform: translateY(12px);
     opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-.rise {
-  animation: rise 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-@keyframes drop-in {
-  from {
-    opacity: 0;
-    transform: translateY(18px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-/* An outfit landing on the board as Claude finishes writing it. */
-.drop-in {
-  animation: drop-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-@keyframes sheet-up {
-  from {
-    transform: translateY(28px);
-    opacity: 0.4;
   }
   to {
     transform: none;
     opacity: 1;
   }
 }
-.sheet-up {
-  animation: sheet-up 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+.slam {
+  animation: slam 210ms steps(3, jump-end) both;
 }
 
-@keyframes shimmer {
-  from {
-    background-position: 200% 0;
-  }
-  to {
-    background-position: -200% 0;
+/* Loading blocks blink in hard on/off steps. */
+@keyframes blink {
+  50% {
+    opacity: 0.35;
   }
 }
-.shimmer {
-  background: linear-gradient(90deg, transparent 0%, color-mix(in oklab, var(--ink) 9%, transparent) 50%, transparent 100%);
-  background-size: 200% 100%;
-  animation: shimmer 1.4s linear infinite;
+.blink {
+  animation: blink 900ms steps(1, end) infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
+  .marquee-track,
+  .slam,
+  .blink {
+    animation: none !important;
   }
-}
-
-.cap-first::first-letter {
-  text-transform: uppercase;
 }

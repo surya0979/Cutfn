@@ -54,7 +54,7 @@ src/
     History.jsx            calendar, stats, palette, what to buy next
     SettingsSheet.jsx      style profile, storage
     Pieces.jsx             ItemImage, ItemTile, OutfitBoard (the flat-lay)
-    GarmentIcon.jsx        garment icon on a tile of the piece's colour, for missing photos
+    GarmentType.jsx        a missing photo: the garment type set in Impact on a block of its colour
   lib/
     vocab.js               garment types (with body slot and wash interval), colours, scales
     outfits.js             slot de-duplication, head-to-toe order, weather ranking, stylist prompt, reply parsing
@@ -65,4 +65,4 @@ src/
 scripts/build-artifact.mjs turns the Vite build into the claude.ai page
 ```
 
-Built with React 19, Vite, Tailwind CSS v4 and Phosphor icons. The look: Archivo at extra-condensed widths for headlines, one safety-orange accent, 4px corners, dark by default with a light mode that follows the system setting.
+Built with React 19, Vite and Tailwind CSS v4, no icon library. The look is brutalist cream: Impact headlines, Courier New everywhere else, 4px black borders, no rounded corners, shadows or gradients, red only for the main action and one number per section, hover inverts. The full rules are in [DESIGN.md](DESIGN.md); `node scripts/check-brutal.mjs src/components/*.jsx` checks a file against them.
