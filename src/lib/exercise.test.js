@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   distanceBurn,
   exerciseBurn,
+  inclineMet,
   formatPace,
   interpolateMet,
   jumpRopeBurn,
@@ -57,6 +58,26 @@ describe('distance to calories', () => {
     const light = distanceBurn({ activity: 'walk', distanceKm: 4, weightKg: 60 })
     const heavy = distanceBurn({ activity: 'walk', distanceKm: 4, weightKg: 90 })
     expect(heavy.kcal / light.kcal).toBeCloseTo(1.5)
+  })
+
+  it('adds the uphill cost for an incline', () => {
+    // 3 mph walk at 5%: 3.5 flat + ~2.07 incline ≈ 5.6 METs (Compendium uphill walking 5.3–6)
+    const walk = distanceBurn({ activity: 'walk', distanceKm: miToKm(1.5), durationMin: 30, inclinePct: 5, weightKg: kg })
+    expect(walk.flatMet).toBe(3.5)
+    expect(walk.met).toBeCloseTo(5.57, 1)
+    expect(walk.inclinePct).toBe(5)
+    // running pays half the walking grade cost per unit of speed
+    const run = distanceBurn({ activity: 'run', distanceKm: miToKm(3), durationMin: 30, inclinePct: 5, weightKg: kg })
+    expect(run.met - run.flatMet).toBeCloseTo(inclineMet('run', 6, 5))
+    expect(inclineMet('run', 6, 5)).toBeCloseTo(2.07, 1)
+    // flat by default, no downhill credit, capped at 15%
+    expect(distanceBurn({ activity: 'walk', distanceKm: 4, weightKg: kg }).met).toBe(distanceBurn({ activity: 'walk', distanceKm: 4, inclinePct: -5, weightKg: kg }).met)
+    expect(inclineMet('walk', 3, 40)).toBeCloseTo(inclineMet('walk', 3, 15))
+  })
+
+  it('recomputes stored walks with their incline', () => {
+    const entry = { kind: 'walk', distanceKm: 3, durationMin: 40, inclinePct: 10 }
+    expect(exerciseBurn(entry, kg).kcal).toBeGreaterThan(exerciseBurn({ ...entry, inclinePct: 0 }, kg).kcal * 1.5)
   })
 
   it('flags implausible paces and rejects empty input', () => {

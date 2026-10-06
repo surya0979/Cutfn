@@ -198,13 +198,14 @@ export function trackerSheets({ meals, exercises, weights, water, settings }) {
     {
       name: 'Workouts',
       rows: [
-        ['Date', 'Activity', 'Distance (mi)', 'Minutes', 'Skips', 'Intensity', 'MET', 'kcal burned'],
+        ['Date', 'Activity', 'Distance (mi)', 'Incline (%)', 'Minutes', 'Skips', 'Intensity', 'MET', 'kcal burned'],
         ...[...exercises].sort(byDate).map((e) => {
           const burn = exerciseBurn(e, resolveBodyWeight(weights, e.date).kg)
           return [
             e.date,
             KIND_LABEL[e.kind] ?? e.kind,
             e.distanceKm ? r1(kmToMi(e.distanceKm)) : '',
+            e.inclinePct || '',
             r1(burn?.minutes),
             e.kind === 'jumprope' ? burn?.skips : '',
             e.level ?? e.intensity ?? '',

@@ -91,21 +91,42 @@ export function interpolateMet(table, speedMph) {
 
 export const kcalFromMet = (met, weightKg, minutes) => met * weightKg * (minutes / 60)
 
+/** Treadmills top out at 15%; steeper numbers are almost always typos. */
+export const MAX_INCLINE = 15
+
+/**
+ * Extra METs for walking or running uphill, from the ACSM metabolic
+ * equations' grade term (oxygen cost in ml/kg/min ÷ 3.5 per MET):
+ *   walking  1.8 × speed (m/min) × grade
+ *   running  0.9 × speed (m/min) × grade
+ * Walking 3 mph at 5% adds about 2 METs; running 6 mph at 5% adds about 2.1.
+ */
+export function inclineMet(activity, speedMph, inclinePct) {
+  const grade = Math.min(Math.max(Number(inclinePct) || 0, 0), MAX_INCLINE) / 100
+  const metersPerMin = (speedMph * 1609.344) / 60
+  return ((activity === 'run' ? 0.9 : 1.8) * metersPerMin * grade) / 3.5
+}
+
 /**
  * Walking or running over a distance. With a duration the actual speed picks
- * the MET; without one the typical pace for that activity is assumed.
+ * the MET; without one the typical pace for that activity is assumed. An
+ * incline (treadmill %, or a steady hill) adds the uphill cost on top.
  */
-export function distanceBurn({ activity, distanceKm, durationMin, weightKg }) {
+export function distanceBurn({ activity, distanceKm, durationMin, inclinePct = 0, weightKg }) {
   const miles = kmToMi(distanceKm)
   if (!(miles > 0) || !(weightKg > 0)) return null
   const hasTime = durationMin > 0
   const speedMph = hasTime ? miles / (durationMin / 60) : DEFAULT_SPEED_MPH[activity]
   const table = activity === 'run' ? RUNNING_METS : WALKING_METS
-  const met = interpolateMet(table, speedMph)
+  const flatMet = interpolateMet(table, speedMph)
+  const incline = Math.min(Math.max(Number(inclinePct) || 0, 0), MAX_INCLINE)
+  const met = flatMet + inclineMet(activity, speedMph, incline)
   const minutes = hasTime ? durationMin : (miles / speedMph) * 60
   const [minSpeed, maxSpeed] = [table[0][0], table[table.length - 1][0]]
   return {
     met,
+    flatMet,
+    inclinePct: incline,
     minutes,
     speedMph,
     assumedPace: !hasTime,
@@ -139,6 +160,7 @@ export function exerciseBurn(entry, weightKg) {
     activity: entry.kind,
     distanceKm: entry.distanceKm,
     durationMin: entry.durationMin,
+    inclinePct: entry.inclinePct,
     weightKg,
   })
 }

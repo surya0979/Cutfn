@@ -1,7 +1,7 @@
 import { Activity, Dumbbell, Flame, Footprints, Plus, Scale, SportShoe, Trash2, TriangleAlert, Volleyball } from 'lucide-react'
 import { useState } from 'react'
 import { formatShortDate, formatTime } from '../lib/dates.js'
-import { distanceBurn, formatPace, JUMP_ROPE, jumpRopeBurn, TIMED_ACTIVITIES, timedBurn } from '../lib/exercise.js'
+import { distanceBurn, formatPace, JUMP_ROPE, MAX_INCLINE, jumpRopeBurn, TIMED_ACTIVITIES, timedBurn } from '../lib/exercise.js'
 import { dayPossessive } from '../lib/labels.js'
 import { COLORS } from '../lib/theme.js'
 import { fmt1, fmtInt, fromKg, fromKm, toKm } from '../lib/units.js'
@@ -66,23 +66,28 @@ function BurnPreview({ result, details, formula, emptyText, warning }) {
   )
 }
 
+const pct = (n) => `${Number(n.toFixed(1))}%`
+
 const formulaText = (met, kg, minutes) => `${fmt1(met)} MET × ${fmt1(kg)} kg × ${(minutes / 60).toFixed(2)} h`
 
 function DistanceForm({ weightKg, distanceUnit, onDistanceUnitChange, onAdd }) {
   const [activity, setActivity] = useState('run')
   const [distance, setDistance] = useState('')
   const [duration, setDuration] = useState('')
+  const [incline, setIncline] = useState('')
 
   const dist = positive(distance)
   const mins = positive(duration)
-  const result = dist ? distanceBurn({ activity, distanceKm: toKm(dist, distanceUnit), durationMin: mins, weightKg }) : null
+  const grade = positive(incline)
+  const result = dist ? distanceBurn({ activity, distanceKm: toKm(dist, distanceUnit), durationMin: mins, inclinePct: grade ?? 0, weightKg }) : null
 
   const submit = (e) => {
     e.preventDefault()
     if (!result) return
-    onAdd({ kind: activity, distanceKm: toKm(dist, distanceUnit), durationMin: mins })
+    onAdd({ kind: activity, distanceKm: toKm(dist, distanceUnit), durationMin: mins, ...(result.inclinePct > 0 && { inclinePct: result.inclinePct }) })
     setDistance('')
     setDuration('')
+    setIncline('')
   }
 
   return (
@@ -125,20 +130,55 @@ function DistanceForm({ weightKg, distanceUnit, onDistanceUnitChange, onAdd }) {
             </div>
           )}
         </Field>
-        <Field label="Time" hint="optional, min">
-          {(id) => (
-            <input
-              id={id}
-              type="number"
-              inputMode="decimal"
-              min={0}
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              placeholder="e.g. 30"
-              className={inputClass}
-            />
-          )}
-        </Field>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Time" hint="optional, min">
+            {(id) => (
+              <input
+                id={id}
+                type="number"
+                inputMode="decimal"
+                min={0}
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+                placeholder="e.g. 30"
+                className={inputClass}
+              />
+            )}
+          </Field>
+          <Field label="Incline" hint="optional, %">
+            {(id) => (
+              <input
+                id={id}
+                type="number"
+                inputMode="decimal"
+                min={0}
+                max={MAX_INCLINE}
+                step="0.5"
+                value={incline}
+                onChange={(e) => setIncline(e.target.value)}
+                placeholder="0 = flat"
+                className={inputClass}
+              />
+            )}
+          </Field>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Incline presets">
+        <span className="text-xs text-muted">Incline:</span>
+        {[0, 2, 5, 8, 12].map((p) => {
+          const on = (grade ?? 0) === p
+          return (
+            <button
+              key={p}
+              type="button"
+              aria-pressed={on}
+              onClick={() => setIncline(p ? String(p) : '')}
+              className={`rounded-lg px-2.5 py-1 text-xs font-medium ring-1 transition-colors ${on ? 'bg-raised text-ink ring-volt/50' : 'text-muted ring-line hover:text-ink-2'}`}
+            >
+              {p ? `${p}%` : 'Flat'}
+            </button>
+          )
+        })}
       </div>
 
       <BurnPreview
@@ -146,10 +186,13 @@ function DistanceForm({ weightKg, distanceUnit, onDistanceUnitChange, onAdd }) {
         emptyText="Enter a distance to see the calorie burn."
         details={
           result &&
-          `${fmt1(dist)} ${distanceUnit} · ${formatPace(result.speedMph, distanceUnit)}${result.assumedPace ? ' (typical pace, add a time to refine)' : ''} · ${Math.round(result.minutes)} min`
+          `${fmt1(dist)} ${distanceUnit} · ${formatPace(result.speedMph, distanceUnit)}${result.assumedPace ? ' (typical pace, add a time to refine)' : ''} · ${Math.round(result.minutes)} min${result.inclinePct > 0 ? ` · ${pct(result.inclinePct)} incline (+${fmt1(result.met - result.flatMet)} MET)` : ''}`
         }
         formula={result && formulaText(result.met, weightKg, result.minutes)}
-        warning={result?.outOfRange && `That pace looks unusual for ${activity === 'run' ? 'running' : 'walking'}. Double-check distance and time.`}
+        warning={
+          (result?.outOfRange && `That pace looks unusual for ${activity === 'run' ? 'running' : 'walking'}. Double-check distance and time.`) ||
+          (grade > MAX_INCLINE && `Incline counted as ${MAX_INCLINE}%, the top of a treadmill.`)
+        }
       />
 
       <Button type="submit" disabled={!result} className="w-full">
@@ -323,7 +366,7 @@ function describe(entry, distanceUnit) {
   }
   return {
     title: `${KIND[entry.kind].label} · ${fmt1(fromKm(entry.distanceKm, distanceUnit))} ${distanceUnit}`,
-    detail: `${Math.round(burn.minutes)} min · ${formatPace(burn.speedMph, distanceUnit)}${burn.assumedPace ? ' (typical)' : ''} · ${fmt1(burn.met)} MET`,
+    detail: `${Math.round(burn.minutes)} min · ${formatPace(burn.speedMph, distanceUnit)}${burn.assumedPace ? ' (typical)' : ''}${burn.inclinePct > 0 ? ` · ${pct(burn.inclinePct)} incline` : ''} · ${fmt1(burn.met)} MET`,
   }
 }
 
