@@ -1,6 +1,6 @@
-import { Check, ChevronDown, LoaderCircle, Plus, Sparkles } from 'lucide-react'
+import { Check, ChevronDown, Combine, LoaderCircle, Plus, Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { estimateFoods, useAiAvailable } from '../lib/aiEstimate.js'
+import { combineItems, estimateFoods, useAiAvailable } from '../lib/aiEstimate.js'
 import { FOOD_BY_ID } from '../lib/foodDb.js'
 import { fmtInt } from '../lib/units.js'
 import { Button, Field, inputClass } from './ui.jsx'
@@ -49,7 +49,7 @@ function QuickAdd({ onAdd }) {
 }
 const num = (v) => (v === '' || v == null ? null : Number(v))
 
-export default function ManualEntry({ onAdd, recentFoods, prefill }) {
+export default function ManualEntry({ onAdd, onCombine, recentFoods, prefill }) {
   const [form, setForm] = useState(blank)
   const [showMacros, setShowMacros] = useState(false)
   const [error, setError] = useState('')
@@ -85,10 +85,10 @@ export default function ManualEntry({ onAdd, recentFoods, prefill }) {
       setError('')
       try {
         const items = await estimateFoods(name)
-        for (const it of items) {
-          onAdd({ name: it.name, portion: it.portion, kcal: it.kcal, protein: it.protein, carbs: it.carbs, fat: it.fat, source: 'ai', note: it.assumption })
-        }
-        setEstimated(items)
+        const entries = items.map((it) =>
+          onAdd({ name: it.name, portion: it.portion, kcal: it.kcal, protein: it.protein, carbs: it.carbs, fat: it.fat, source: 'ai', note: it.assumption }),
+        )
+        setEstimated({ text: name, items, entries, combined: false })
         setForm(blank)
       } catch (err) {
         setError(err.message)
@@ -208,13 +208,41 @@ export default function ManualEntry({ onAdd, recentFoods, prefill }) {
             <Sparkles className="size-3.5 text-volt" aria-hidden /> Logged with Claude’s estimate
           </p>
           <ul className="space-y-1 text-ink-2">
-            {estimated.map((it, i) => (
+            {estimated.items.map((it, i) => (
               <li key={i}>
                 <span className="font-semibold text-ink">{it.name}</span> · {it.portion} · {fmtInt(it.kcal)} kcal · P {it.protein} C {it.carbs} F {it.fat}
                 {it.assumption && <span className="block text-muted">Assumed {it.assumption.replace(/^assum(ed|ing)\s*/i, '')}</span>}
+                {it.parts && <span className="block text-muted">Made up of {it.parts}</span>}
               </li>
             ))}
           </ul>
+          {(estimated.items.length > 1 || estimated.combined) && onCombine && estimated.entries.every(Boolean) && (
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-volt/20 pt-2">
+              <span className="text-ink-2">{estimated.combined ? 'Logged as one entry.' : 'Was this one dish? Keep it as a single entry.'}</span>
+              {!estimated.combined && (
+                <Button
+                  variant="secondary"
+                  className="px-3 py-1.5 text-xs"
+                  onClick={() => {
+                    const merged = combineItems(estimated.items, estimated.text)
+                    onCombine(estimated.entries, {
+                      name: merged.name,
+                      portion: merged.portion,
+                      kcal: merged.kcal,
+                      protein: merged.protein,
+                      carbs: merged.carbs,
+                      fat: merged.fat,
+                      source: 'ai',
+                      note: merged.assumption,
+                    })
+                    setEstimated((e) => ({ ...e, items: [{ ...merged, assumption: '', parts: merged.assumption }], combined: true }))
+                  }}
+                >
+                  <Combine className="size-3.5" aria-hidden /> Combine into one ({fmtInt(estimated.items.reduce((t, it) => t + it.kcal, 0))} kcal)
+                </Button>
+              )}
+            </div>
+          )}
           <p className="mt-1 text-muted">Wrong portion? Delete it below and add it again with a quantity, like “2 bowls”.</p>
         </div>
       )}

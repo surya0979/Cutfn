@@ -67,7 +67,7 @@ function Usuals({ usuals, onLog, onDelete }) {
   )
 }
 
-export default function LogMeal({ onAdd, recentFoods, dayLabel, section, onSectionChange, usuals, onLogUsual, onDeleteUsual, prefillRequest, onPrefillHandled }) {
+export default function LogMeal({ onAdd, onCombine, recentFoods, dayLabel, section, onSectionChange, usuals, onLogUsual, onDeleteUsual, prefillRequest, onPrefillHandled }) {
   const [tab, setTab] = useState('manual')
   const [prefill, setPrefill] = useState(null)
 
@@ -110,7 +110,7 @@ export default function LogMeal({ onAdd, recentFoods, dayLabel, section, onSecti
       {/* Keep both mounted so a scan in progress survives a tab switch. */}
       <div hidden={tab !== 'manual'}>
         <TabPanel value="manual">
-          <ManualEntry onAdd={onAdd} recentFoods={recentFoods} prefill={prefill} />
+          <ManualEntry onAdd={onAdd} onCombine={onCombine} recentFoods={recentFoods} prefill={prefill} />
         </TabPanel>
       </div>
       <div hidden={tab !== 'photo'}>

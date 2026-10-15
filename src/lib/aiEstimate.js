@@ -1,6 +1,7 @@
 // Calorie and macro estimates from Claude, for foods the built-in database
 // doesn't know or that the user describes in their own words
-// ("bowl of dal makhani with 2 chapatis").
+// ("bowl of dal makhani with 2 chapatis"). A dish comes back as one item;
+// its ingredients are folded into it, not logged separately.
 //
 // On claude.ai the page can ask Claude through the `sample` capability,
 // which runs on the viewer's own Claude account (they approve it once).
@@ -37,7 +38,11 @@ ${foods}
 """
 
 Rules:
-- If it lists several foods, return one item per food.
+- One item per dish, the way it was served. Ingredients, fillings, toppings, sauces, add-ins and the oil, ghee or butter it was cooked in are part of that dish, never separate items.
+  "maggi with egg and cheese" → 1 item. "chicken sandwich with mayo and lettuce" → 1 item. "oats with banana and peanut butter" → 1 item. "paneer bhurji made with 100 g paneer and a spoon of ghee" → 1 item.
+- Only return several items when they list foods eaten side by side as separate things: "2 chapatis and dal" → 2 items, "rice, dal and curd" → 3 items, "burger, fries and a coke" → 3 items.
+- If unsure whether something is one dish or several foods, make it one item.
+- Name each dish in the student's own words, tidied up (e.g. "Maggi with egg and cheese"), and list its main ingredients and amounts in "assumption".
 - Honor any quantity given (e.g. "2 chapatis", "half plate"). Otherwise assume one typical school canteen serving, and say what you assumed.
 - For a packaged product, use its usual label values for the stated or smallest common pack size.
 - Use realistic averages, not best-case numbers. Round kcal to the nearest 5 and grams to whole numbers.
@@ -94,6 +99,24 @@ export async function estimateFoods(description, { signal } = {}) {
   }
 }
 
+/**
+ * Several estimated items folded into one log entry, named `name`
+ * (for when one dish came back split into its parts).
+ */
+export function combineItems(items, name) {
+  const sum = (key) => items.reduce((total, it) => total + (Number(it[key]) || 0), 0)
+  const label = String(name ?? '').trim()
+  return {
+    name: (label ? label[0].toUpperCase() + label.slice(1) : items.map((it) => it.name).join(' + ')).slice(0, 80),
+    portion: '1 serving',
+    kcal: Math.round(sum('kcal')),
+    protein: Math.round(sum('protein')),
+    carbs: Math.round(sum('carbs')),
+    fat: Math.round(sum('fat')),
+    assumption: items.map((it) => `${it.name} ${it.portion ? `(${it.portion}) ` : ''}${Math.round(it.kcal)} kcal`).join(' + ').slice(0, 140),
+  }
+}
+
 /** Ask Claude a free-form question and get plain text back. */
 export async function askClaude(prompt, { signal } = {}) {
   const sample = await getSample()
@@ -140,7 +163,8 @@ const SHAPE = `Reply with JSON only, in exactly this shape (numbers are for what
 
 const PHOTO_PROMPTS = {
   plate: (note) => `This photo shows food that a high-school student in India on a fat-loss cut ate (often a school canteen tray or thali, sometimes a restaurant or home meal).
-Identify each separate food and drink you can see and estimate its portion from visual cues (a standard plate is about 25 cm across; katoris, spoons, glasses and hands help with scale).
+Identify each separate dish and drink you can see and estimate its portion from visual cues (a standard plate is about 25 cm across; katoris, spoons, glasses and hands help with scale).
+A dish is one item, not its ingredients: a sandwich, burger, wrap, biryani, bowl of noodles or pasta, or a curry with its gravy is one item (count the bread, filling, sauce and oil inside it). Separate items are things served apart, like chapati, rice and dal in different parts of a thali.
 Estimate calories and macros per item. Use realistic averages for Indian home and canteen cooking, including oil and ghee.
 ${note ? `The student adds: "${note}". Apply this (for example, only count what they say they ate).` : ''}
 Round kcal to the nearest 5 and grams to whole numbers. In "assumption", say what portion you judged and anything notable (e.g. "fried, looks oily").

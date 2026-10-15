@@ -177,8 +177,23 @@ export default function App() {
   const stamp = (entry) => ({ ...entry, date, createdAt: Date.now() })
   const addMeal = (meal) => {
     const id = makeId()
-    actions.addMeal(stamp({ ...meal, id, section: meal.section ?? section }))
+    const entry = stamp({ ...meal, id, section: meal.section ?? section })
+    actions.addMeal(entry)
     showToast({ message: `Added ${meal.name} · ${fmtInt(meal.kcal)} kcal`, onUndo: () => actions.deleteMeal(id) })
+    return entry
+  }
+  // Swap several logged entries for one (a dish the AI split into its parts).
+  const combineMeals = (entries, meal) => {
+    entries.forEach((e) => actions.deleteMeal(e.id))
+    const id = makeId()
+    actions.addMeal({ ...meal, id, date: entries[0].date, section: entries[0].section, createdAt: entries[0].createdAt })
+    showToast({
+      message: `Combined into ${meal.name} · ${fmtInt(meal.kcal)} kcal`,
+      onUndo: () => {
+        actions.deleteMeal(id)
+        entries.forEach((e) => actions.addMeal(e))
+      },
+    })
   }
   const addFood = (food) =>
     addMeal({ name: food.name, portion: food.portion, kcal: food.kcal, protein: food.p, carbs: food.c, fat: food.f, source: 'menu' })
@@ -274,6 +289,7 @@ export default function App() {
           <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2 lg:items-start">
             <LogMeal
               onAdd={addMeal}
+              onCombine={combineMeals}
               recentFoods={recentFoods}
               dayLabel={dayLabel}
               section={section}
