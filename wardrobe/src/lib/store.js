@@ -299,16 +299,16 @@ export function useWardrobeStore() {
       return next
     }
     const find = (col, id) => stateRef.current[col].find((x) => x.id === id)
-    // Deleted pieces whose Undo is still open: id → { timer, item }.
+    // Deleted pieces whose Undo is still open: id → { timer, refs } (refs: every photo the piece may show).
     const pendingPhotoDeletes = new Map()
+    const undoable = () => [...pendingPhotoDeletes.values()].flatMap((p) => p.refs)
     // Pieces cut from one photo share the whole photo, so a photo goes only once nothing points at it,
     // counting deleted pieces that can still come back.
     const photoKey = (ref) => ref?.photo?.asset ?? ref?.photo?.local ?? null
     const dropPhoto = (ref, exceptId) => {
       const key = photoKey(ref)
       if (!key) return
-      const pieces = [...stateRef.current.items, ...[...pendingPhotoDeletes.values()].map((p) => p.item)]
-      const used = pieces.some((i) => i.id !== exceptId && (photoKey(i) === key || photoKey(i.whole) === key))
+      const used = [...stateRef.current.items, ...undoable()].some((i) => i.id !== exceptId && (photoKey(i) === key || photoKey(i.whole) === key))
       if (!used) adapter.deletePhoto(ref)
     }
 
@@ -324,13 +324,17 @@ export function useWardrobeStore() {
       updateItem: patchItem,
       /** Delete a piece; returns undo(). Its photo is removed once the undo window passes. */
       deleteItem: (item, undoMs = 9000) => {
-        queued(`items:${item.id}`, () => adapter.remove('items', item.id))
-        const timer = setTimeout(() => {
+        // The stored piece can be newer than the caller's copy (Claude gave it a cut meanwhile): both count.
+        const stored = find('items', item.id)
+        const refs = [item, item.whole, stored, stored?.whole].filter(Boolean)
+        const removed = queued(`items:${item.id}`, () => adapter.remove('items', item.id))
+        const timer = setTimeout(async () => {
           pendingPhotoDeletes.delete(item.id)
-          dropPhoto(item, item.id)
-          if (item.whole) dropPhoto(item.whole, item.id)
+          // A remove that failed leaves the piece, and its photos with it.
+          if (!(await removed) || find('items', item.id)) return
+          for (const ref of refs) dropPhoto(ref, item.id)
         }, undoMs)
-        pendingPhotoDeletes.set(item.id, { timer, item })
+        pendingPhotoDeletes.set(item.id, { timer, refs })
         return () => {
           clearTimeout(pendingPhotoDeletes.get(item.id)?.timer)
           pendingPhotoDeletes.delete(item.id)
@@ -345,6 +349,8 @@ export function useWardrobeStore() {
           throw new Error(describeError(err))
         }),
       photoBlob: (item) => adapter.photoBlob(item),
+      /** The piece as stored right now (or undefined once it's gone). */
+      getItem: (id) => find('items', id),
       /** True when this view keeps full photos apart from the record (needed to cut one photo into pieces). */
       storesPhotos: Boolean(adapter.canStorePhotos),
       /** Delete a stored photo ({ photo } or { photoData }) unless a piece other than `exceptId` still shows it. */
@@ -427,7 +433,8 @@ export function useWardrobeStore() {
         setState((st) => ({ ...st, taste: next }))
         return queued('taste', () => adapter.putDoc('taste', next))
       },
-      storage: () => adapter.storage(stateRef.current.items),
+      // Photos of deleted pieces that can still be undone aren't "unused".
+      storage: () => adapter.storage([...stateRef.current.items, ...undoable()]),
     }
   }, [adapter])
 

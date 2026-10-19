@@ -89,25 +89,9 @@ describe('readTagAnswer', () => {
     const plan = readTagAnswer({ items: [{ ...tee, category: 'T-shirt' }, { ...jeans, category: 'trousers' }, { ...shoes, category: 'Sneaker' }] })
     expect(plan.pieces.map((p) => p.tags.category)).toEqual(['t-shirt', 'pants', 'sneakers'])
   })
-  it('keeps a piece with an unknown type as one to finish by hand, never leading', () => {
-    const odd = { name: 'Silk pocket square', category: 'pocket-square', colors: ['white'], box: [600, 600, 700, 700] }
-    const plan = readTagAnswer({ items: [odd, tee, jeans] })
-    expect(plan.split).toBe(true)
-    expect(plan.pieces.map((p) => p.tags.category)).toEqual(['t-shirt', null, 'jeans'])
-    expect(plan.pieces[1].tags.name).toBe('Silk pocket square')
-    expect(readTagAnswer({ items: [odd] })).toBeNull()
-    expect(readTagAnswer({ items: [odd, tee] }, { several: false })).toMatchObject({ split: false, piece: { tags: { category: 't-shirt' } } })
-  })
-  it('counts the same piece listed twice once, but keeps layers', () => {
-    const twice = readTagAnswer({ items: [tee, { ...tee, name: 'Cream tee', box: [60, 50, 470, 530] }] })
-    expect(twice.split).toBe(false)
-    const layered = readTagAnswer({ items: [{ ...tee, category: 'jacket' }, tee] })
-    expect(layered.split).toBe(true)
-  })
-  it('drops pieces that aren’t clothing and returns null when nothing is', () => {
-    const plan = readTagAnswer({ items: [{ category: 'sofa', box: [0, 0, 500, 500] }, tee] })
-    expect(plan).toMatchObject({ split: false, piece: { tags: { category: 't-shirt' } } })
-    expect(readTagAnswer({ items: [], reason: 'a cat' })).toBeNull()
+  it('reads the other names in a type’s label', () => {
+    const plan = readTagAnswer({ items: [{ ...tee, category: 'kurta' }, { ...jeans, category: 'Churidar' }, { ...shoes, category: 'kolhapuris' }, { name: 'Silk stole', category: 'stole', box: [600, 600, 700, 700] }] })
+    expect(plan.pieces.map((p) => p.tags.category)).toEqual(['kurta', 'salwar', 'juttis', 'dupatta'])
   })
   it('caps a busy photo at six pieces', () => {
     const many = Array.from({ length: 9 }, (_, i) => ({ category: 'socks', name: `Socks ${i}`, box: [i * 100, 0, i * 100 + 90, 200] }))

@@ -205,21 +205,24 @@ const TYPE_ALIASES = {
   'bomber-jacket': 'jacket',
   'denim-jacket': 'jacket',
   'leather-jacket': 'jacket',
-  stole: 'scarf',
-  sari: 'saree',
+  stole: 'dupatta',
   shawl: 'scarf',
+  sari: 'saree',
 }
 
 const slug = (v) => String(v ?? '').toLowerCase().trim().replace(/[\s_]+/g, '-')
 
-/** Claude's type → a value from the list, or null. Takes "T-shirt", "tank top", "Sneaker", "trousers"... */
+// Every name a type's label gives it: "Dupatta / stole" → dupatta and stole, "Formal shoes / loafers" → both.
+const LABEL_NAMES = {}
+for (const t of TYPES) for (const part of [t.label, ...t.label.split(' / ')]) LABEL_NAMES[slug(part)] ??= t.value
+
+/** Claude's type → a value from the list, or null. Takes "T-shirt", "tank top", "Sneaker", "trousers", "churidar"... */
 export function readType(raw) {
   const key = slug(raw)
   if (!key) return null
-  const label = TYPES.find((t) => slug(t.label) === key)?.value
   // Plural or singular: "kurtas", "dresses", "sneaker", "boot".
   const forms = [key, `${key}s`, key.replace(/s$/, ''), key.replace(/es$/, '')]
-  for (const k of [...forms, label, ...forms.map((f) => TYPE_ALIASES[f])]) {
+  for (const k of [...forms, ...forms.map((f) => LABEL_NAMES[f]), ...forms.map((f) => TYPE_ALIASES[f])]) {
     if (k && TYPE_BY_VALUE[k]) return k
   }
   return null
@@ -235,14 +238,10 @@ export function readColor(raw) {
   return [words[0], words.at(-1)].find((w) => COLOR_BY_VALUE[w]) ?? null
 }
 
-/**
- * Normalise Claude's tags against the vocabulary; unknown values are dropped.
- * Returns null without a known type, unless `loose`: then a piece Claude named
- * but typed oddly comes back with category null, for the owner to finish.
- */
-export function cleanTags(raw, { loose = false } = {}) {
+/** Normalise Claude's tags against the vocabulary; unknown values are dropped. Null without a known type. */
+export function cleanTags(raw) {
   const category = readType(raw?.category)
-  if (!category && !(loose && slug(raw?.category) && raw?.name)) return null
+  if (!category) return null
   const colors = (Array.isArray(raw.colors) ? raw.colors : [raw.colors])
     .map(readColor)
     .filter(Boolean)
@@ -265,21 +264,15 @@ export function cleanTags(raw, { loose = false } = {}) {
   }
 }
 
-/**
- * Claude's answer for one photo → a filing plan (see planPieces), or null if it
- * saw no clothing. A piece with a type outside the list still gets its own cut
- * (category null, for the owner to pick) rather than vanishing; it never leads.
- */
+/** Claude's answer for one photo → a filing plan (see planPieces), or null if it saw no clothing. */
 export function readTagAnswer(answer, { several = true } = {}) {
   const pieces = rawPieces(answer)
     .map((raw) => {
-      const tags = cleanTags(raw, { loose: true })
+      const tags = cleanTags(raw)
       return tags && { tags, box: readBox(raw?.box) }
     })
     .filter(Boolean)
-  const lead = pieces.findIndex((p) => p.tags.category)
-  if (lead < 0) return null
-  return planPieces([pieces[lead], ...pieces.filter((_, i) => i !== lead)], { several })
+  return planPieces(pieces, { several })
 }
 
 /**

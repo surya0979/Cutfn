@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { relativeDays, todayKey } from '../lib/dates.js'
 import { preparePhoto } from '../lib/images.js'
 import { washable } from '../lib/outfits.js'
@@ -217,6 +217,7 @@ const EDITABLE = ['name', 'category', 'subtype', 'colors', 'pattern', 'material'
 // What Claude fills in from the photo. Changing any of these makes the tags yours.
 const TAGS = ['name', 'category', 'subtype', 'colors', 'pattern', 'material', 'fit', 'formality', 'warmth', 'styles', 'brand']
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+const fieldsOf = (item) => Object.fromEntries(EDITABLE.map((k) => [k, item[k] ?? null]))
 
 /** Who tagged the piece, and the way out when Claude got it wrong. */
 function TagSource({ item, canTag, onFix, onRetag }) {
@@ -253,22 +254,42 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(null)
   const [restoring, setRestoring] = useState(false)
+  // The fields the form started from, to tell the owner's changes from Claude's.
+  const base = useRef(null)
+  const startFrom = (fields) => {
+    base.current = fields
+    setDraft(fields)
+  }
 
   // A new piece without tags opens straight into editing when Claude can't tag it.
   useEffect(() => {
     if (!open || !item) return
     setEditing(!item.category && item.aiStatus !== 'pending')
-    setDraft(Object.fromEntries(EDITABLE.map((k) => [k, item[k] ?? null])))
+    startFrom(fieldsOf(item))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, item?.id])
 
-  // Tags that arrive while the sheet is open fill the form too; if Claude gives up, tagging by hand takes over.
+  // Claude's tags land while the sheet is open. Viewing, they show. Editing, they fill every field the
+  // owner hasn't touched, and a form the owner never touched closes to show them. If Claude gives up on
+  // an untagged piece, the form takes over.
   useEffect(() => {
     if (!open || !item) return
-    if (item.aiStatus === 'done' && !editing) setDraft(Object.fromEntries(EDITABLE.map((k) => [k, item[k] ?? null])))
+    if (item.aiStatus === 'done') {
+      const next = fieldsOf(item)
+      const touched = editing && draft ? EDITABLE.filter((k) => !same(draft[k], base.current?.[k])) : []
+      if (editing && !touched.length) setEditing(false)
+      startFrom(touched.length ? { ...next, ...Object.fromEntries(touched.map((k) => [k, draft[k]])) } : next)
+      base.current = next
+    }
     if ((item.aiStatus === 'failed' || item.aiStatus === 'manual') && !item.category) setEditing(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.aiStatus])
+
+  // Edit always starts from the piece as it is now.
+  const edit = () => {
+    startFrom(fieldsOf(item))
+    setEditing(true)
+  }
 
   if (!item) return null
   const pending = item.aiStatus === 'pending'
@@ -301,11 +322,7 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
     })
   }
 
-  // Claude's answer shows in the sheet, not under a form the owner hasn't touched.
-  const askClaude = () => {
-    setEditing(false)
-    uploader.retag(item)
-  }
+  const askClaude = () => uploader.retag(item)
 
   // A piece cut from a bigger photo can go back to the whole photo (Claude's cut was off).
   // The cut is only deleted once the piece has really switched.
@@ -357,8 +374,8 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
             showToast({ message: item.laundry ? 'Back in the closet' : 'Into the wash' })
           }}
         />
-        <QuickAction label="Edit" onClick={() => setEditing(true)} />
-        <QuickAction label="Delete" onClick={remove} danger />
+        <QuickAction label="Edit" onClick={edit} />
+        <QuickAction label="Delete" onClick={remove} danger disabled={restoring} />
       </div>
     </div>
   )
@@ -427,7 +444,7 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
                 {item.description && <p className="text-[16px] md:mr-[12%]">{item.description}</p>}
                 <Details item={item} />
                 {item.laundry && <p className="text-[15px] text-muted md:ml-[20%]">In the wash, so it’s left out of outfit ideas.</p>}
-                {!pending && <TagSource item={item} canTag={canTag} onFix={() => setEditing(true)} onRetag={askClaude} />}
+                {!pending && <TagSource item={item} canTag={canTag} onFix={edit} onRetag={askClaude} />}
                 {item.whole && !pending && (
                   <div className="flex flex-col gap-3 md:ml-[20%]">
                     <p className="text-[15px]">Cut from a photo with other pieces in it.</p>
