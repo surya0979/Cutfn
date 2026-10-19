@@ -30,7 +30,7 @@ export function ItemImage({ item, full = false, className = '', fit = 'cover' })
  */
 export function ItemTile({ item, onOpen, selected, selectable = false }) {
   const pending = item.aiStatus === 'pending'
-  const failed = item.aiStatus === 'failed'
+  const untagged = !pending && (!item.category || item.aiStatus === 'failed')
   return (
     <button
       type="button"
@@ -47,7 +47,7 @@ export function ItemTile({ item, onOpen, selected, selectable = false }) {
             <Spinner /> Claude is tagging
           </span>
         )}
-        {failed && <span className="meta absolute inset-x-0 bottom-0 border-t-4 border-ink bg-ink px-2 py-1.5 text-page">Needs tags</span>}
+        {untagged && <span className="meta absolute inset-x-0 bottom-0 border-t-4 border-ink bg-ink px-2 py-1.5 text-page">Needs tags</span>}
         {!pending && item.wearCount > 0 && (
           <span className="hangtag absolute top-2 left-0 tnum" title={`Worn ${item.wearCount} times`}>
             {item.wearCount}×

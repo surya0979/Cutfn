@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { relativeDays, todayKey } from '../lib/dates.js'
+import { preparePhoto } from '../lib/images.js'
 import { washable } from '../lib/outfits.js'
 import { COLORS, FITS, FORMALITY, GROUPS, MATERIALS, PATTERNS, STYLES, TYPES, WARMTH, colorLabel, colorWord, typeLabel, typeOf } from '../lib/vocab.js'
 import { ItemImage } from './Pieces.jsx'
@@ -213,10 +214,45 @@ function EditForm({ draft, setDraft }) {
 }
 
 const EDITABLE = ['name', 'category', 'subtype', 'colors', 'pattern', 'material', 'fit', 'formality', 'warmth', 'styles', 'brand', 'price', 'notes']
+// What Claude fills in from the photo. Changing any of these makes the tags yours.
+const TAGS = ['name', 'category', 'subtype', 'colors', 'pattern', 'material', 'fit', 'formality', 'warmth', 'styles', 'brand']
+const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+
+/** Who tagged the piece, and the way out when Claude got it wrong. */
+function TagSource({ item, canTag, onFix, onRetag }) {
+  if (item.tagSource === 'claude')
+    return (
+      <div className="flex flex-col gap-3 border-4 border-ink p-3 md:mr-[12%]">
+        <p className="meta">Tagged by Claude from your photo</p>
+        <p className="text-[15px]">Something off? Fix it by hand. Claude only changes it again if you ask.</p>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="black" onClick={onFix}>
+            Fix tags
+          </Button>
+          {canTag && (
+            <Button size="sm" variant="secondary" onClick={onRetag}>
+              Re-tag from photo
+            </Button>
+          )}
+        </div>
+      </div>
+    )
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      {item.tagSource === 'you' && <p className="meta">Tagged by you</p>}
+      {canTag && (
+        <Button size="sm" variant="ghost" className="-ml-3 self-start bg-page" onClick={onRetag}>
+          Re-tag from photo
+        </Button>
+      )}
+    </div>
+  )
+}
 
 export default function ItemSheet({ item, open, onClose, actions, uploader, canTag, onStyle, onDeleted, showToast }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(null)
+  const [restoring, setRestoring] = useState(false)
 
   // A new piece without tags opens straight into editing when Claude can't tag it.
   useEffect(() => {
@@ -226,9 +262,11 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, item?.id])
 
-  // Tags that arrive while the sheet is open fill the form too.
+  // Tags that arrive while the sheet is open fill the form too; if Claude gives up, tagging by hand takes over.
   useEffect(() => {
-    if (open && item?.aiStatus === 'done' && !editing) setDraft(Object.fromEntries(EDITABLE.map((k) => [k, item[k] ?? null])))
+    if (!open || !item) return
+    if (item.aiStatus === 'done' && !editing) setDraft(Object.fromEntries(EDITABLE.map((k) => [k, item[k] ?? null])))
+    if ((item.aiStatus === 'failed' || item.aiStatus === 'manual') && !item.category) setEditing(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.aiStatus])
 
@@ -237,21 +275,45 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
   const failed = item.aiStatus === 'failed'
   const cpw = item.price && item.wearCount ? item.price / item.wearCount : null
 
+  // Saving by hand wins: Claude stops tagging this piece and never overwrites it unless asked.
   const save = () => {
-    const patch = { ...draft, formality: draft.formality ?? 2, warmth: draft.warmth ?? 3, name: (draft.name ?? '').trim(), aiStatus: item.aiStatus === 'pending' ? 'pending' : 'done' }
+    const patch = { ...draft, colors: draft.colors ?? [], formality: draft.formality ?? 2, warmth: draft.warmth ?? 3, name: (draft.name ?? '').trim(), aiStatus: 'done', aiError: null }
     if (!patch.category) return
-    if (!patch.name) patch.name = `${patch.colors?.[0] ? colorWord(patch.colors[0]) + ' ' : ''}${typeLabel(patch.category).split(' / ')[0].toLowerCase()}`
-    if (!patch.colors?.length) patch.colors = ['multicolor']
+    if (!patch.name) patch.name = `${patch.colors[0] ? colorWord(patch.colors[0]) + ' ' : ''}${typeLabel(patch.category).split(' / ')[0].toLowerCase()}`
+    if (pending || !item.category || TAGS.some((k) => !same(patch[k], item[k]))) patch.tagSource = 'you'
+    if (pending) uploader.stopTagging(item.id)
     actions.updateItem(item.id, patch)
     setEditing(false)
     showToast({ message: 'Saved' })
   }
 
   const remove = () => {
+    uploader.stopTagging(item.id)
     const undo = actions.deleteItem(item)
     onClose()
     onDeleted?.(item)
-    showToast({ message: `Deleted ${item.name || 'piece'}`, onUndo: undo })
+    showToast({
+      message: `Deleted ${item.name || 'piece'}`,
+      onUndo: () => {
+        undo()
+        if (pending) uploader.retag(item)
+      },
+    })
+  }
+
+  // A piece cut from a bigger photo can go back to the whole photo (Claude's cut was off).
+  const restoreWholePhoto = async () => {
+    setRestoring(true)
+    try {
+      const { thumb } = await preparePhoto(await actions.photoBlob(item.whole))
+      await actions.updateItem(item.id, { photo: item.whole.photo, thumb, whole: null })
+      actions.dropPhoto(item, item.id)
+      showToast({ message: 'Showing the whole photo' })
+    } catch {
+      showToast({ message: 'The whole photo is gone, so this cut stays.' })
+    } finally {
+      setRestoring(false)
+    }
   }
 
   // Editing: Save is the one red CTA. Viewing: Style this piece is. Each goes
@@ -319,12 +381,16 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
         <div className={`flex min-w-0 flex-col gap-5 ${editing ? '' : 'md:pt-12'}`}>
           {pending && (
             <Notice tone="warn" className="flex items-center gap-3">
-              <Spinner className="text-[18px]" /> Claude is tagging this piece…
+              <Spinner className="text-[18px]" />
+              <span>Claude is tagging this piece…{editing ? ' Saving your own tags stops it.' : ''}</span>
             </Notice>
           )}
           {failed && (
             <Notice tone="warn" className="flex flex-col gap-3">
-              <p>{item.aiError || 'Claude couldn’t tag this piece.'}</p>
+              <p>
+                {item.aiError || 'Claude couldn’t tag this piece.'}
+                {!item.category ? ' Tag it below.' : ''}
+              </p>
               {canTag && (
                 <Button size="sm" variant="secondary" className="self-start" onClick={() => uploader.retag(item)}>
                   Retry tagging
@@ -332,7 +398,16 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
               )}
             </Notice>
           )}
-          {!canTag && !item.category && !pending && <Notice>Tag this piece so it can go into outfits. On claude.ai, Claude does this from the photo.</Notice>}
+          {!item.category && !pending && !failed && (
+            <Notice className="flex flex-col gap-3">
+              <p>{item.aiError || (canTag ? 'Tag it below so it can go into outfits, or let Claude do it from the photo.' : 'Tag this piece so it can go into outfits.')}</p>
+              {canTag && (
+                <Button size="sm" variant="secondary" className="self-start" onClick={() => uploader.retag(item)}>
+                  Tag with Claude
+                </Button>
+              )}
+            </Notice>
+          )}
 
           {editing && draft ? (
             <EditForm draft={draft} setDraft={setDraft} />
@@ -342,10 +417,14 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
                 {item.description && <p className="text-[16px] md:mr-[12%]">{item.description}</p>}
                 <Details item={item} />
                 {item.laundry && <p className="text-[15px] text-muted md:ml-[20%]">In the wash, so it’s left out of outfit ideas.</p>}
-                {canTag && !pending && (
-                  <Button size="sm" variant="ghost" className="-ml-3 self-start bg-page" onClick={() => uploader.retag(item)}>
-                    Re-tag from photo
-                  </Button>
+                {!pending && <TagSource item={item} canTag={canTag} onFix={() => setEditing(true)} onRetag={() => uploader.retag(item)} />}
+                {item.whole && !pending && (
+                  <div className="flex flex-col gap-3 md:ml-[20%]">
+                    <p className="text-[15px]">Cut from a photo with other pieces in it.</p>
+                    <Button size="sm" variant="secondary" className="self-start" onClick={restoreWholePhoto} disabled={restoring}>
+                      {restoring ? 'Loading the photo…' : 'Use the whole photo'}
+                    </Button>
+                  </div>
                 )}
               </>
             )

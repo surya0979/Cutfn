@@ -4,6 +4,24 @@ import { Button, Chip, Field, inputClass, Segmented, Sheet, Spinner, Swatch } fr
 
 const mb = (bytes) => `${(bytes / 1_048_576).toFixed(bytes < 10_485_760 ? 1 : 0)} MB`
 
+// What Claude can do with photos in this view (see useAi), in words.
+const PHOTO_STATUS = {
+  checking: 'Checking whether Claude can see photos here…',
+  ready: 'Claude can see your photos here.',
+  untested: 'Claude tries your next photo; if this view can’t send photos, you tag it yourself.',
+  blocked: 'Claude can’t see photos in this view, so new pieces wait for you to tag them.',
+  denied: 'Claude isn’t allowed on this page yet. Allow it in the page’s Permissions menu, then reload.',
+  off: 'Claude isn’t available here, so you tag each piece yourself.',
+}
+const AUTO_TAG = [
+  { value: true, label: 'Claude tags them' },
+  { value: false, label: 'I tag them' },
+]
+const SPLIT = [
+  { value: true, label: 'One piece each' },
+  { value: false, label: 'Main piece only' },
+]
+
 /** Square swatches joined edge to edge; a picked one gets a black ✓ block, a hovered one a + block. */
 function ColorPicker({ value = [], onChange, label }) {
   return (
@@ -88,7 +106,7 @@ function Storage({ actions, open }) {
   )
 }
 
-export default function SettingsSheet({ open, onClose, settings, taste, actions, mode }) {
+export default function SettingsSheet({ open, onClose, settings, taste, actions, mode, ai }) {
   const [draft, setDraft] = useState(settings)
   useEffect(() => {
     if (open) setDraft(settings)
@@ -103,6 +121,8 @@ export default function SettingsSheet({ open, onClose, settings, taste, actions,
       avoidColors: draft.avoidColors ?? [],
       city: (draft.city ?? '').trim(),
       notes: (draft.notes ?? '').trim(),
+      autoTag: draft.autoTag !== false,
+      splitPhotos: draft.splitPhotos !== false,
     })
     onClose()
   }
@@ -160,6 +180,19 @@ export default function SettingsSheet({ open, onClose, settings, taste, actions,
             />
           )}
         </Field>
+
+        <section className="flex flex-col gap-5 border-t-4 border-ink pt-5">
+          <h3 className="display text-[32px]">Photo tagging</h3>
+          <p className="meta md:mr-[18%]">{PHOTO_STATUS[ai?.photos ?? 'off']}</p>
+          <Field label="New photos" hint="Either way, you can fix any piece by hand.">
+            <Segmented label="New photos" options={AUTO_TAG} value={draft.autoTag !== false} onChange={(v) => set({ autoTag: v })} />
+          </Field>
+          {draft.autoTag !== false && (
+            <Field label="Several pieces in one photo" className="md:ml-10" hint="Each piece gets its own cut of the photo. Undo it, or go back to the whole photo, if a cut is off.">
+              <Segmented label="Several pieces in one photo" options={SPLIT} value={draft.splitPhotos !== false} onChange={(v) => set({ splitPhotos: v })} />
+            </Field>
+          )}
+        </section>
 
         <section className="flex flex-col gap-3 border-t-4 border-ink pt-5">
           <h3 className="display text-[32px]">Learned from your feedback</h3>

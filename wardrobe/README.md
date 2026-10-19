@@ -8,7 +8,10 @@ A phone-first rebuild of [wardrowbe](https://github.com/anyesh/wardrowbe)'s idea
 
 ## Using it
 
-1. **Closet → Add photos.** One piece per photo: laid flat on the bed or floor, or on a hanger against a wall. Add up to 40 at once (camera, gallery, drag-and-drop or paste). Each photo is saved straight away. Claude then tags it in the background with type, colours, pattern, fabric, fit, formality (1–5), warmth (1–5) and style. Tap any piece to fix a tag, add the price, or leave a note for Claude ("only for weddings").
+1. **Closet → Add photos.** Lay pieces flat on the bed or floor, or hang them against a wall: one per photo, or a few with space between them. Add up to 40 at once (camera, gallery, drag-and-drop or paste). Each photo is saved straight away. Claude then logs it in the background with type, colours, pattern, fabric, fit, formality (1–5), warmth (1–5) and style. A photo with several pieces becomes one piece each, each with its own cut of the photo; *Undo* on the toast, or *Use the whole photo* on a piece, puts it back.
+   - **When Claude gets it wrong:** every piece says who tagged it. *Fix tags* opens the form; once you save, Claude never overwrites it unless you tap *Re-tag from photo*. Saving your own tags while Claude is still looking stops Claude.
+   - **When Claude can't help** (switched off in *Style profile → Photo tagging*, this view can't send photos, or an error): a single photo opens straight into the tag form, and a batch waits under "N pieces still need tags" with *Tag with Claude* and *Tag by hand*.
+   - Tap any piece to add the price or leave a note for Claude ("only for weddings").
 2. **Style me.** Pick the occasion, the temperature band (°C), rain or humidity, and the time of day. Add anything else in your own words. Claude streams back three outfits, each with reasons and a styling tip. Each one shows as a flat-lay of your own photos.
    - **Build around a piece:** pick one item (or tap *Style this piece* on it) and it's in every look.
    - **Wear today** logs the outfit, bumps each piece's wear count, and moves pieces that are due for a wash to the laundry. A t-shirt goes after 1 wear, jeans after 6, and shoes, bags and watches never go. Laundry pieces are left out of suggestions until you mark them clean.
@@ -34,11 +37,11 @@ The weather is chosen by you, not fetched: pages on claude.ai can't call outside
 ```bash
 npm install
 npm run dev              # http://localhost:5173
-npm test                 # outfit slot rules, weather ranking, prompt + reply parsing, tag cleanup
+npm test                 # outfit slot rules, weather ranking, prompt + reply parsing, tag cleanup, photo splitting
 npm run build:artifact   # dist/artifact.html + dist/assets/ for claude.ai
 ```
 
-To republish on claude.ai: run `npm run build:artifact`, then publish `dist/artifact.html` with `dist/assets/*` and `dist/favicon.svg` alongside it. Declare the `db`, `user`, `assets` and `sample` capabilities.
+To republish on claude.ai: run `npm run build:artifact`, then publish `dist/artifact.html` with `dist/assets/*` and `dist/favicon.svg` alongside it. Declare the capabilities `{"db": {}, "user": {}, "assets": {}, "sample": {"images": true}}`. Without `images: true` the page can't send photos to Claude and every piece falls back to tagging by hand.
 
 ## Project layout
 
@@ -52,16 +55,17 @@ src/
     OutfitCard.jsx         one suggestion: flat-lay, reasons, wear / save / feedback
     Looks.jsx              saved looks and the look builder
     History.jsx            calendar, stats, palette, what to buy next
-    SettingsSheet.jsx      style profile, storage
+    SettingsSheet.jsx      style profile, photo tagging switches, storage
     Pieces.jsx             ItemImage, ItemTile, OutfitBoard (the flat-lay)
     GarmentType.jsx        a missing photo: the garment type set in Impact on a block of its colour
   lib/
     vocab.js               garment types (with body slot and wash interval), colours, scales
     outfits.js             slot de-duplication, head-to-toe order, weather ranking, stylist prompt, reply parsing
-    ai.js                  Claude calls: tagging, outfits (streamed), wardrobe gaps, fit check
+    ai.js                  Claude calls: tagging, outfits (streamed), wardrobe gaps, fit check; whether photos can go to Claude
+    detect.js              reading Claude's pieces and boxes, deciding whether to split a photo
     store.js               claude.ai db + assets, or IndexedDB
-    useUploader.js         photo → saved piece → background tagging queue
-    images.js              decode, orient, resize, thumbnail
+    useUploader.js         photo → saved piece → background tagging queue → split, undo, hand-tagging fallback
+    images.js              decode, orient, resize, thumbnail, crop
 scripts/build-artifact.mjs turns the Vite build into the claude.ai page
 ```
 

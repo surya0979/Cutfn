@@ -51,12 +51,12 @@ const stagger = (i) => `min-w-0 ${i % 2 ? 'mt-8 lg:mt-12' : 'mt-0 lg:mt-0'} ${i 
 const GRID = 'grid grid-cols-2 items-start gap-x-3 gap-y-6 md:grid-cols-3 md:gap-x-4 lg:grid-cols-4'
 
 const TIPS = [
-  { n: '01', title: 'One piece per photo', line: 'Nothing else in the frame.', place: '' },
+  { n: '01', title: 'Lay pieces out apart', line: 'One per photo, or a few with space between.', place: '' },
   { n: '02', title: 'Daylight beats flash', line: 'A window keeps the colours true.', place: 'md:mt-12' },
   { n: '03', title: 'Shoes and bags count', line: 'They finish the fit. Add them too.', place: 'md:col-start-1 md:ml-16' },
 ]
 
-function EmptyCloset({ onAdd, canTag }) {
+function EmptyCloset({ onAdd, canTag, autoTag }) {
   return (
     <div className="slam flex flex-col gap-8">
       <h2 className="display min-w-0 text-[clamp(64px,13vw,150px)] break-words">Nothing in here yet</h2>
@@ -64,7 +64,9 @@ function EmptyCloset({ onAdd, canTag }) {
       <div className="flex flex-col items-start gap-5 md:ml-[38%]">
         <p className="max-w-[46ch] text-[16px]">
           Snap each piece on its own, on the bed, the floor or a hanger.
-          {canTag ? ' Claude tags the type, colours and fabric, then builds outfits from what you actually own.' : ' Tag each one, then build outfits from what you actually own.'}
+          {canTag && autoTag
+            ? ' Claude logs each piece it sees (type, colours, fabric), then builds outfits from what you actually own. Anything it gets wrong, you fix by hand.'
+            : ' Tag each one, then build outfits from what you actually own.'}
         </p>
         <Button variant="primary" size="lg" onClick={onAdd}>
           <span aria-hidden="true">+</span> Add your first pieces
@@ -86,7 +88,7 @@ function EmptyCloset({ onAdd, canTag }) {
   )
 }
 
-export default function Closet({ items, ready, uploader, canTag, onOpenItem, onStyle, onLaundryClean }) {
+export default function Closet({ items, ready, uploader, canTag, autoTag = true, onOpenItem, onStyle, onLaundryClean }) {
   const [q, setQ] = useState('')
   const [group, setGroup] = useState('all')
   const [sort, setSort] = useState('new')
@@ -107,7 +109,7 @@ export default function Closet({ items, ready, uploader, canTag, onOpenItem, onS
     return () => window.removeEventListener('paste', onPaste)
   }, [addPhotos])
 
-  const failedCount = items.filter((i) => i.aiStatus === 'failed').length
+  const untagged = items.filter((i) => i.aiStatus !== 'pending' && (!i.category || i.aiStatus === 'failed'))
 
   const counts = useMemo(() => {
     const c = { all: items.length, favorites: 0, laundry: 0 }
@@ -187,14 +189,22 @@ export default function Closet({ items, ready, uploader, canTag, onOpenItem, onS
           </span>
         </Notice>
       )}
-      {canTag && failedCount > 0 && uploader.tagging === 0 && uploader.adding === 0 && (
+      {/* Pieces Claude didn't tag (it couldn't, or it's switched off): let it try, or tag them by hand. */}
+      {untagged.length > 0 && uploader.tagging === 0 && uploader.adding === 0 && (
         <Notice tone="warn" className="flex flex-wrap items-center justify-between gap-3">
           <span>
-            {failedCount} piece{failedCount > 1 ? 's' : ''} still need{failedCount > 1 ? '' : 's'} tags.
+            {untagged.length} piece{untagged.length > 1 ? 's' : ''} still need{untagged.length > 1 ? '' : 's'} tags.
           </span>
-          <Button size="sm" variant="secondary" onClick={() => uploader.retagFailed(items.filter((i) => i.aiStatus === 'failed'))}>
-            Retry tagging
-          </Button>
+          <span className="flex flex-wrap gap-2">
+            {canTag && (
+              <Button size="sm" variant="secondary" onClick={() => uploader.retagFailed(untagged)}>
+                {untagged.some((i) => i.aiStatus === 'failed') ? 'Retry tagging' : 'Tag with Claude'}
+              </Button>
+            )}
+            <Button size="sm" variant="secondary" onClick={() => onOpenItem(untagged[0])}>
+              Tag by hand
+            </Button>
+          </span>
         </Notice>
       )}
       {uploader.errors.length > 0 && (
@@ -223,7 +233,7 @@ export default function Closet({ items, ready, uploader, canTag, onOpenItem, onS
           ))}
         </div>
       ) : items.length === 0 ? (
-        <EmptyCloset onAdd={openPicker} canTag={canTag} />
+        <EmptyCloset onAdd={openPicker} canTag={canTag} autoTag={autoTag} />
       ) : (
         <>
           <div className="flex flex-col gap-3">

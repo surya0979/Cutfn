@@ -151,7 +151,7 @@ function cloudAdapter(backend, setState) {
     async storage(items) {
       if (!assets) return null
       const { assets: list, usage } = await assets.list()
-      const used = new Set(items.map((i) => i.photo?.asset).filter(Boolean))
+      const used = new Set(items.flatMap((i) => [i.photo?.asset, i.whole?.photo?.asset]).filter(Boolean))
       const orphans = list.filter((a) => !used.has(a.id))
       return {
         usage,
@@ -300,6 +300,14 @@ export function useWardrobeStore() {
     }
     const find = (col, id) => stateRef.current[col].find((x) => x.id === id)
     const pendingPhotoDeletes = new Map()
+    // Pieces cut from one photo share the whole photo, so a photo goes only once nothing points at it.
+    const photoKey = (ref) => ref?.photo?.asset ?? ref?.photo?.local ?? null
+    const dropPhoto = (ref, exceptId) => {
+      const key = photoKey(ref)
+      if (!key) return
+      const used = stateRef.current.items.some((i) => i.id !== exceptId && (photoKey(i) === key || photoKey(i.whole) === key))
+      if (!used) adapter.deletePhoto(ref)
+    }
 
     const patchItem = (id, patch) => queued(`items:${id}`, () => adapter.patch('items', id, patch))
 
@@ -316,7 +324,8 @@ export function useWardrobeStore() {
         queued(`items:${item.id}`, () => adapter.remove('items', item.id))
         const timer = setTimeout(() => {
           pendingPhotoDeletes.delete(item.id)
-          adapter.deletePhoto(item)
+          dropPhoto(item, item.id)
+          if (item.whole) dropPhoto(item.whole, item.id)
         }, undoMs)
         pendingPhotoDeletes.set(item.id, timer)
         return () => {
@@ -333,6 +342,8 @@ export function useWardrobeStore() {
           throw new Error(describeError(err))
         }),
       photoBlob: (item) => adapter.photoBlob(item),
+      /** Delete a stored photo ({ photo } or { photoData }) unless a piece other than `exceptId` still shows it. */
+      dropPhoto,
 
       saveLook: (look) => {
         const id = look.id ?? makeId()

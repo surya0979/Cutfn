@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react'
 import { COLOR_BY_VALUE, COLORS, FITS, FORMALITY, MATERIALS, PATTERNS, STYLES, TYPE_BY_VALUE, TYPES, WARMTH, colorLabel, colorWord, typeLabel } from './vocab.js'
 import { buildStylistPrompt, parseOutfitLines, resolveOutfit, sameOutfit } from './outfits.js'
+import { MAX_PIECES, planPieces, rawPieces, readBox } from './detect.js'
 
 let samplePromise = null
 function getSample() {
@@ -13,29 +14,65 @@ function getSample() {
   return samplePromise
 }
 
-/** Resolves true when this view can send photos to Claude. */
-export async function canSendImages() {
-  const s = await getSample()
-  const limits = s ? await s.limits().catch(() => null) : null
-  return Boolean(limits?.images)
+/*
+ * Whether photos can go to Claude in this view:
+ *   checking  not known yet
+ *   ready     the view says it can send photos, or a photo already went through
+ *   untested  Claude is here but the view didn't confirm photos: the next photo tries, and settles it
+ *   blocked   this view can't send photos (tag by hand)
+ *   denied    the viewer hasn't allowed Claude on this page
+ *   off       no Claude here at all
+ */
+let photoState = 'checking'
+const photoListeners = new Set()
+function setPhotoState(next) {
+  if (photoState === next) return
+  photoState = next
+  for (const listener of photoListeners) listener(next)
 }
 
-/** { text: null|bool, images: null|bool } — null while checking. */
+let photoCheck = null
+function checkPhotos() {
+  photoCheck ??= getSample().then(async (s) => {
+    if (!s) return setPhotoState('off')
+    const limits = await s.limits().catch(() => null)
+    if (photoState === 'checking') setPhotoState(limits?.images ? 'ready' : 'untested')
+  })
+  return photoCheck
+}
+
+const canTry = (state) => state === 'ready' || state === 'untested'
+
+/** Resolves true when it's worth sending a photo to Claude in this view. */
+export async function canSendImages() {
+  await checkPhotos()
+  return canTry(photoState)
+}
+
+/** { text: null|bool, images: null|bool, photos: photo state } — null while checking. */
 export function useAi() {
-  const [state, setState] = useState({ text: null, images: null })
+  const [text, setText] = useState(null)
+  const [photos, setPhotos] = useState(photoState)
   useEffect(() => {
     let live = true
-    getSample()
-      .then(async (s) => {
-        const limits = s ? await s.limits().catch(() => null) : null
-        if (live) setState({ text: Boolean(s), images: Boolean(limits?.images) })
-      })
-      .catch(() => live && setState({ text: false, images: false }))
+    getSample().then((s) => live && setText(Boolean(s)))
+    checkPhotos()
+    const listener = (next) => live && setPhotos(next)
+    photoListeners.add(listener)
+    setPhotos(photoState)
     return () => {
       live = false
+      photoListeners.delete(listener)
     }
   }, [])
-  return state
+  return { text, images: photos === 'checking' ? null : canTry(photos), photos }
+}
+
+/** What a failed photo call says about the view, for every later photo. */
+function notePhotoError(code) {
+  if (code === 'images_unavailable') setPhotoState('blocked')
+  else if (code === 'not_granted') setPhotoState('denied')
+  else if (code === 'sampling_disabled' || code === 'not_declared' || code === 'capability_disabled' || code === 'capability_removed') setPhotoState('off')
 }
 
 const MESSAGES = {
@@ -43,7 +80,7 @@ const MESSAGES = {
   sampling_disabled: 'Claude isn’t available on this account.',
   rate_limited: 'Too many requests to Claude right now. Wait a minute and try again.',
   session_expired: 'Your claude.ai session expired. Sign in again, then retry.',
-  images_unavailable: 'Photo tagging isn’t available in this view. Tag the piece yourself for now.',
+  images_unavailable: 'Claude can’t see photos in this view, so tag pieces yourself for now.',
   image_rejected: 'Claude couldn’t open that photo. Try a JPG or PNG.',
   invalid_json: 'Claude’s answer came back in an unusable form. Try again.',
   refused: 'Claude declined that request. Try different wording.',
@@ -65,9 +102,7 @@ const clampInt = (v, min, max, fallback) => {
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback
 }
 
-const TAG_PROMPT = `You are cataloguing one piece of clothing for the owner's digital wardrobe. The photo shows something they own: on a hanger, laid flat, on a bed or floor, or worn. Describe the MAIN item only (the largest garment, shoe or accessory in focus).
-
-Use exactly these values where a list is given:
+const TAG_FIELDS = `Use exactly these values where a list is given:
 - category: ${list(TYPES.map((t) => t.value))}
 - colors: 1 to 3 of ${list(COLORS.map((c) => c.value))}. Dominant colour first. Use "indigo" for blue denim, "multicolor" only for busy prints.
 - pattern: ${list(PATTERNS)}
@@ -77,19 +112,57 @@ Use exactly these values where a list is given:
 - formality: 1 to 5 (${FORMALITY.map((f) => `${f.value} ${f.label.toLowerCase()}`).join(', ')})
 - warmth: 1 to 5 (${WARMTH.map((w) => `${w.value} ${w.label.toLowerCase()}`).join(', ')}): how warm it is to wear
 
-Name it like a shop listing in 2 to 5 words: colour, then the key detail, then the type ("Olive cargo joggers", "Ivory chikankari kurta", "White leather sneakers"). Mention a brand only if a logo is clearly readable.
+Name each piece like a shop listing in 2 to 5 words: colour, then the key detail, then the type ("Olive cargo joggers", "Ivory chikankari kurta", "White leather sneakers"). Mention a brand only if a logo is clearly readable.`
+
+const TAG_EXAMPLE = `{"name":"Navy oxford shirt","category":"shirt","subtype":"oxford button-down","colors":["navy","white"],"pattern":"solid","material":"cotton","fit":"regular","styles":["classic","preppy"],"formality":3,"warmth":2,"brand":null,"description":"One sentence on what stands out and what it pairs well with.","box":[120,40,560,610]}`
+
+/** The tagging prompt: every separate piece in the photo, or only the main one. */
+export function tagPrompt({ several = true } = {}) {
+  const which = several
+    ? `List every separate piece of clothing, footwear or accessory that is clearly visible, up to ${MAX_PIECES}, the most prominent first. A pair (shoes, socks, earrings) is one piece. Never list parts of one garment separately, and skip anything mostly hidden, cut off by the edge of the photo, or too small to make out. If the photo shows one piece, list just that one.`
+    : 'Describe the MAIN piece only (the largest garment, shoe or accessory in focus).'
+  return `You are cataloguing clothing for the owner's digital wardrobe. The photo shows things they own: on a hanger, laid flat, on a bed or floor, or worn.
+${which}
+
+${TAG_FIELDS}
+
+"box" is where the piece sits in the photo: [left, top, right, bottom] as whole numbers from 0 to 1000, where [0,0] is the top-left corner of the photo and [1000,1000] the bottom-right. Keep it tight around that piece.
 
 Reply with JSON only, in exactly this shape:
-{"name":"Navy oxford shirt","category":"shirt","subtype":"oxford button-down","colors":["navy","white"],"pattern":"solid","material":"cotton","fit":"regular","styles":["classic","preppy"],"formality":3,"warmth":2,"brand":null,"description":"One sentence on what stands out and what it pairs well with."}
+{"items":[${TAG_EXAMPLE}]}
 
-If there is no clothing, footwear or accessory in the photo, reply {"category":null,"reason":"what the photo shows"}.`
+If there is no clothing, footwear or accessory in the photo, reply {"items":[],"reason":"what the photo shows"}.`
+}
+
+// Names Claude reaches for that the palette files under another value.
+const COLOR_ALIASES = {
+  grey: 'gray',
+  'light-gray': 'gray',
+  'dark-gray': 'charcoal',
+  'off-white': 'cream',
+  ivory: 'cream',
+  denim: 'indigo',
+  'dark-blue': 'navy',
+  'sky-blue': 'light-blue',
+  'baby-blue': 'light-blue',
+  burgundy: 'maroon',
+  wine: 'maroon',
+  camel: 'tan',
+  'dark-green': 'green',
+  'army-green': 'olive',
+  violet: 'purple',
+  multi: 'multicolor',
+  'multi-color': 'multicolor',
+  multicolour: 'multicolor',
+}
 
 /** Normalise Claude's tags against the vocabulary; unknown values are dropped. */
 export function cleanTags(raw) {
   const category = TYPE_BY_VALUE[raw?.category] ? raw.category : null
   if (!category) return null
   const colors = (Array.isArray(raw.colors) ? raw.colors : [raw.colors])
-    .map((c) => String(c ?? '').toLowerCase().trim().replace(/\s+/g, '-').replace('grey', 'gray'))
+    .map((c) => String(c ?? '').toLowerCase().trim().replace(/\s+/g, '-'))
+    .map((c) => COLOR_ALIASES[c] ?? c)
     .filter((c) => COLOR_BY_VALUE[c])
     .filter((c, i, a) => a.indexOf(c) === i)
     .slice(0, 3)
@@ -98,7 +171,7 @@ export function cleanTags(raw) {
     name: text(raw.name, 60) || `${colors[0] ? colorWord(colors[0]) + ' ' : ''}${typeLabel(category).split(' / ')[0].toLowerCase()}`,
     category,
     subtype: text(raw.subtype, 40),
-    colors: colors.length ? colors : ['multicolor'],
+    colors,
     pattern: pick(raw.pattern, PATTERNS) ?? 'solid',
     material: pick(raw.material, MATERIALS),
     fit: pick(raw.fit, FITS),
@@ -110,23 +183,43 @@ export function cleanTags(raw) {
   }
 }
 
-/** Ask Claude to tag one garment photo. Resolves cleaned tags; rejects with a friendly Error. */
-export async function tagGarment(photo, { signal } = {}) {
+/** Claude's answer for one photo → a filing plan (see planPieces), or null if it saw no clothing. */
+export function readTagAnswer(answer, { several = true } = {}) {
+  const pieces = rawPieces(answer)
+    .map((raw) => {
+      const tags = cleanTags(raw)
+      return tags && { tags, box: readBox(raw?.box) }
+    })
+    .filter(Boolean)
+  return planPieces(pieces, { several })
+}
+
+/**
+ * Ask Claude to tag one photo. Resolves { split: false, piece } or
+ * { split: true, pieces } (each piece { tags, box }); rejects with a friendly Error.
+ */
+export async function tagGarment(photo, { signal, several = true } = {}) {
   const sample = await getSample()
-  if (!sample) throw friendly({ code: 'sampling_disabled' })
-  let raw
+  if (!sample) {
+    setPhotoState('off')
+    throw friendly({ code: 'sampling_disabled' })
+  }
+  let answer
   try {
-    raw = await sample.json(TAG_PROMPT, { images: photo, modelTier: 'quick', signal })
+    answer = await sample.json(tagPrompt({ several }), { images: photo, modelTier: 'quick', signal })
   } catch (err) {
+    notePhotoError(err?.code)
     throw friendly(err, 'Couldn’t reach Claude to tag this piece. You can tag it yourself or retry.')
   }
-  const tags = cleanTags(raw)
-  if (!tags) {
-    const e = new Error(`Claude didn’t see clothing in this photo${raw?.reason ? ` (${String(raw.reason).slice(0, 80)})` : ''}. Tag it yourself or retake it.`)
+  setPhotoState('ready')
+  const plan = readTagAnswer(answer, { several })
+  if (!plan) {
+    const reason = answer?.reason ? ` (${String(answer.reason).slice(0, 80)})` : ''
+    const e = new Error(`Claude didn’t see clothing in this photo${reason}. Tag it yourself or retake it.`)
     e.code = 'not_clothing'
     throw e
   }
-  return tags
+  return plan
 }
 
 /**
@@ -246,6 +339,7 @@ export async function fitCheck(photo, { context = '', signal } = {}) {
     data = await sample.json(FIT_CHECK(context.slice(0, 200)), { images: photo, modelTier: 'default', signal, cache: false })
   } catch (err) {
     if (err?.code === 'cancelled') throw Object.assign(new Error('Stopped.'), { code: 'cancelled' })
+    notePhotoError(err?.code)
     throw friendly(err)
   }
   const strs = (a, n) => (Array.isArray(a) ? a : []).map((s) => String(s).slice(0, 200)).filter(Boolean).slice(0, n)

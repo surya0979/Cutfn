@@ -24,19 +24,18 @@ async function decode(file) {
   }
 }
 
-function draw(source, maxSide) {
-  const w = source.width
-  const h = source.height
-  const scale = Math.min(1, maxSide / Math.max(w, h))
+/** Draw `source` (or the part of it in `rect`, in pixels) at most `maxSide` on its long edge. */
+function draw(source, maxSide, rect = { x: 0, y: 0, w: source.width, h: source.height }) {
+  const scale = Math.min(1, maxSide / Math.max(rect.w, rect.h))
   const canvas = document.createElement('canvas')
-  canvas.width = Math.max(1, Math.round(w * scale))
-  canvas.height = Math.max(1, Math.round(h * scale))
+  canvas.width = Math.max(1, Math.round(rect.w * scale))
+  canvas.height = Math.max(1, Math.round(rect.h * scale))
   const ctx = canvas.getContext('2d')
   // Cut-out PNGs have transparent backgrounds; JPEG would turn them black.
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, canvas.width, canvas.height)
   ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(source, 0, 0, canvas.width, canvas.height)
+  ctx.drawImage(source, rect.x, rect.y, rect.w, rect.h, 0, 0, canvas.width, canvas.height)
   return canvas
 }
 
@@ -76,6 +75,27 @@ export async function preparePhoto(file) {
     const full = await toBlob(draw(source, FULL_SIDE), 0.85)
     const thumb = await blobToDataUrl(await toBlob(draw(source, THUMB_SIDE), 0.74))
     return { full, thumb, width: source.width, height: source.height }
+  } finally {
+    source.close?.()
+  }
+}
+
+/**
+ * Cut one piece out of a photo: `box` is { x, y, w, h } as fractions of it.
+ * Resolves { full: Blob, thumb: dataURL }, like preparePhoto.
+ */
+export async function cropPhoto(blob, box) {
+  const source = await decode(blob)
+  try {
+    const rect = {
+      x: Math.round(box.x * source.width),
+      y: Math.round(box.y * source.height),
+      w: Math.max(1, Math.round(box.w * source.width)),
+      h: Math.max(1, Math.round(box.h * source.height)),
+    }
+    const full = await toBlob(draw(source, FULL_SIDE, rect), 0.85)
+    const thumb = await blobToDataUrl(await toBlob(draw(source, THUMB_SIDE, rect), 0.74))
+    return { full, thumb }
   } finally {
     source.close?.()
   }

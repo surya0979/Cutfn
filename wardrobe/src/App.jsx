@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Closet from './components/Closet.jsx'
 import Header, { BottomNav, TABS } from './components/Header.jsx'
 import History from './components/History.jsx'
@@ -31,12 +31,20 @@ export default function App() {
   const { items, looks, wears, settings, taste, actions, mode, ready } = store
   const ai = useAi()
   const { toast, show: showToast, dismiss } = useToast()
-  const uploader = useUploader({ actions, items, ready })
 
   const [tab, setTabState] = useState(readTab)
   const [openItemId, setOpenItemId] = useState(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [styleRequest, setStyleRequest] = useState(null)
+
+  // One photo that Claude couldn't tag opens straight into tagging by hand.
+  const settingsOpenRef = useRef(settingsOpen)
+  settingsOpenRef.current = settingsOpen
+  const onTagFailed = useCallback((id) => {
+    if (!settingsOpenRef.current) setOpenItemId((current) => current ?? id)
+  }, [])
+  const onSplit = useCallback(({ count, undo }) => showToast({ message: `Found ${count} pieces in one photo`, onUndo: undo }), [showToast])
+  const uploader = useUploader({ actions, items, ready, settings, onSplit, onTagFailed })
 
   const itemsById = useMemo(() => Object.fromEntries(items.map((i) => [i.id, i])), [items])
   const openItem = itemsById[openItemId] ?? null
@@ -74,8 +82,8 @@ export default function App() {
   const { addPhotos: addRaw } = uploader
   const addPhotos = useCallback(
     async (files) => {
-      const { ids, canTag } = await addRaw(files)
-      if (!canTag && ids.length === 1) setOpenItemId(ids[0])
+      const { ids, tagging } = await addRaw(files)
+      if (!tagging && ids.length === 1) setOpenItemId(ids[0])
       return ids
     },
     [addRaw],
@@ -128,6 +136,7 @@ export default function App() {
               ready={ready}
               uploader={closetUploader}
               canTag={Boolean(ai.images)}
+              autoTag={settings.autoTag !== false}
               onOpenItem={onOpenItem}
               onStyle={() => setTab('style')}
               onLaundryClean={onLaundryClean}
@@ -181,7 +190,7 @@ export default function App() {
           />
         )}
         {actions && (
-          <SettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} settings={settings} taste={taste} actions={actions} mode={mode} />
+          <SettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} settings={settings} taste={taste} actions={actions} mode={mode} ai={ai} />
         )}
         <Toast toast={toast} onDismiss={dismiss} />
       </div>

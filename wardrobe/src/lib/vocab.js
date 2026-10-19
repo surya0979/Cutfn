@@ -244,4 +244,8 @@ export const DEFAULT_SETTINGS = {
   avoidColors: [],
   city: '',
   notes: '',
+  // Claude tags new photos as they're added (off: every piece is tagged by hand).
+  autoTag: true,
+  // A photo with several pieces becomes one piece each (off: the main piece only).
+  splitPhotos: true,
 }
