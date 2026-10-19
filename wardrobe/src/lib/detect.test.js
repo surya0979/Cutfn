@@ -14,11 +14,20 @@ describe('readBox', () => {
     expect(readBox([0.6, 0.9, 0.1, 0.2])).toEqual({ x: 0.1, y: 0.2, w: 0.5, h: 0.7 })
     expect(readBox([-50, 0, 1200, 500])).toEqual({ x: 0, y: 0, w: 1, h: 0.5 })
   })
-  it('rejects missing, malformed and sliver boxes', () => {
+  it('rejects missing, malformed and degenerate boxes', () => {
     expect(readBox(undefined)).toBeNull()
     expect(readBox([1, 2, 3])).toBeNull()
     expect(readBox(['a', 0, 10, 10])).toBeNull()
-    expect(readBox([100, 100, 120, 900])).toBeNull()
+    expect(readBox([100, 100, 104, 900])).toBeNull()
+  })
+  it('widens a thin piece (a belt, a side-on shoe) around its middle', () => {
+    const belt = readBox([100, 880, 500, 930])
+    expect(belt.x).toBeCloseTo(0.1)
+    expect(belt.h).toBeCloseTo(0.08)
+    expect(belt.y + belt.h / 2).toBeCloseTo(0.905)
+    const edge = readBox([0, 980, 400, 1000])
+    expect(edge.y + edge.h).toBeCloseTo(1)
+    expect(edge.h).toBeCloseTo(0.08)
   })
 })
 
@@ -72,6 +81,23 @@ describe('readTagAnswer', () => {
     expect(readTagAnswer({ items: [tee, { ...jeans, box: null }] }).split).toBe(false)
     expect(readTagAnswer({ items: [tee, { ...jeans, box: [5, 5, 6, 6] }] }).split).toBe(false)
   })
+  it('still splits a flat-lay with a thin belt in it', () => {
+    const belt = { name: 'Brown belt', category: 'belt', colors: ['brown'], box: [100, 880, 500, 930] }
+    expect(readTagAnswer({ items: [tee, jeans, belt] }).pieces).toHaveLength(3)
+  })
+  it('reads types the way Claude writes them', () => {
+    const plan = readTagAnswer({ items: [{ ...tee, category: 'T-shirt' }, { ...jeans, category: 'trousers' }, { ...shoes, category: 'Sneaker' }] })
+    expect(plan.pieces.map((p) => p.tags.category)).toEqual(['t-shirt', 'pants', 'sneakers'])
+  })
+  it('keeps a piece with an unknown type as one to finish by hand, never leading', () => {
+    const odd = { name: 'Silk pocket square', category: 'pocket-square', colors: ['white'], box: [600, 600, 700, 700] }
+    const plan = readTagAnswer({ items: [odd, tee, jeans] })
+    expect(plan.split).toBe(true)
+    expect(plan.pieces.map((p) => p.tags.category)).toEqual(['t-shirt', null, 'jeans'])
+    expect(plan.pieces[1].tags.name).toBe('Silk pocket square')
+    expect(readTagAnswer({ items: [odd] })).toBeNull()
+    expect(readTagAnswer({ items: [odd, tee] }, { several: false })).toMatchObject({ split: false, piece: { tags: { category: 't-shirt' } } })
+  })
   it('counts the same piece listed twice once, but keeps layers', () => {
     const twice = readTagAnswer({ items: [tee, { ...tee, name: 'Cream tee', box: [60, 50, 470, 530] }] })
     expect(twice.split).toBe(false)
@@ -92,6 +118,10 @@ describe('readTagAnswer', () => {
 describe('tagging', () => {
   it('leaves colours empty instead of guessing', () => {
     expect(cleanTags({ category: 'shirt', colors: ['neon-ish'] }).colors).toEqual([])
+  })
+  it('reads colours in British and compound spellings', () => {
+    expect(cleanTags({ category: 'shirt', colors: ['Dark grey', 'light grey', 'olive green', 'multi-colour'] }).colors).toEqual(['charcoal', 'gray', 'olive'])
+    expect(cleanTags({ category: 'shirt', colors: ['navy blue', 'Off White'] }).colors).toEqual(['navy', 'cream'])
   })
   it('asks for every piece, or just the main one', () => {
     expect(tagPrompt()).toMatch(/List every separate piece/)

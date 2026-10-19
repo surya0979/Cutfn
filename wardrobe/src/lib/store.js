@@ -299,13 +299,16 @@ export function useWardrobeStore() {
       return next
     }
     const find = (col, id) => stateRef.current[col].find((x) => x.id === id)
+    // Deleted pieces whose Undo is still open: id → { timer, item }.
     const pendingPhotoDeletes = new Map()
-    // Pieces cut from one photo share the whole photo, so a photo goes only once nothing points at it.
+    // Pieces cut from one photo share the whole photo, so a photo goes only once nothing points at it,
+    // counting deleted pieces that can still come back.
     const photoKey = (ref) => ref?.photo?.asset ?? ref?.photo?.local ?? null
     const dropPhoto = (ref, exceptId) => {
       const key = photoKey(ref)
       if (!key) return
-      const used = stateRef.current.items.some((i) => i.id !== exceptId && (photoKey(i) === key || photoKey(i.whole) === key))
+      const pieces = [...stateRef.current.items, ...[...pendingPhotoDeletes.values()].map((p) => p.item)]
+      const used = pieces.some((i) => i.id !== exceptId && (photoKey(i) === key || photoKey(i.whole) === key))
       if (!used) adapter.deletePhoto(ref)
     }
 
@@ -327,9 +330,9 @@ export function useWardrobeStore() {
           dropPhoto(item, item.id)
           if (item.whole) dropPhoto(item.whole, item.id)
         }, undoMs)
-        pendingPhotoDeletes.set(item.id, timer)
+        pendingPhotoDeletes.set(item.id, { timer, item })
         return () => {
-          clearTimeout(pendingPhotoDeletes.get(item.id))
+          clearTimeout(pendingPhotoDeletes.get(item.id)?.timer)
           pendingPhotoDeletes.delete(item.id)
           queued(`items:${item.id}`, () => adapter.put('items', item.id, item))
         }
@@ -342,6 +345,8 @@ export function useWardrobeStore() {
           throw new Error(describeError(err))
         }),
       photoBlob: (item) => adapter.photoBlob(item),
+      /** True when this view keeps full photos apart from the record (needed to cut one photo into pieces). */
+      storesPhotos: Boolean(adapter.canStorePhotos),
       /** Delete a stored photo ({ photo } or { photoData }) unless a piece other than `exceptId` still shows it. */
       dropPhoto,
 

@@ -68,6 +68,9 @@ export function useAi() {
   return { text, images: photos === 'checking' ? null : canTry(photos), photos }
 }
 
+/** Codes after which every later photo would fail the same way: stop the rest, don't retry. */
+export const STOP_CODES = new Set(['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed', 'images_unavailable', 'rate_limited', 'session_expired'])
+
 /** What a failed photo call says about the view, for every later photo. */
 function notePhotoError(code) {
   if (code === 'images_unavailable') setPhotoState('blocked')
@@ -78,6 +81,9 @@ function notePhotoError(code) {
 const MESSAGES = {
   not_granted: 'Claude needs your OK to help here. Allow it when asked (or in the page’s Permissions menu), then try again.',
   sampling_disabled: 'Claude isn’t available on this account.',
+  not_declared: 'Claude isn’t available in this view, so tag pieces yourself.',
+  capability_disabled: 'Claude isn’t available in this view, so tag pieces yourself.',
+  capability_removed: 'Claude isn’t available in this view, so tag pieces yourself.',
   rate_limited: 'Too many requests to Claude right now. Wait a minute and try again.',
   session_expired: 'Your claude.ai session expired. Sign in again, then retry.',
   images_unavailable: 'Claude can’t see photos in this view, so tag pieces yourself for now.',
@@ -134,9 +140,8 @@ Reply with JSON only, in exactly this shape:
 If there is no clothing, footwear or accessory in the photo, reply {"items":[],"reason":"what the photo shows"}.`
 }
 
-// Names Claude reaches for that the palette files under another value.
+// Names Claude reaches for that the palette files under another value ("grey" is read as "gray" first).
 const COLOR_ALIASES = {
-  grey: 'gray',
   'light-gray': 'gray',
   'dark-gray': 'charcoal',
   'off-white': 'cream',
@@ -154,16 +159,93 @@ const COLOR_ALIASES = {
   multi: 'multicolor',
   'multi-color': 'multicolor',
   multicolour: 'multicolor',
+  'multi-colour': 'multicolor',
 }
 
-/** Normalise Claude's tags against the vocabulary; unknown values are dropped. */
-export function cleanTags(raw) {
-  const category = TYPE_BY_VALUE[raw?.category] ? raw.category : null
-  if (!category) return null
+// Types Claude names in its own words, or as a label, mapped to the list.
+const TYPE_ALIASES = {
+  tee: 't-shirt',
+  tshirt: 't-shirt',
+  'tee-shirt': 't-shirt',
+  tank: 'tank-top',
+  camisole: 'tank-top',
+  trousers: 'pants',
+  chinos: 'pants',
+  'cargo-pants': 'pants',
+  cargos: 'pants',
+  sweatpants: 'joggers',
+  trackpants: 'joggers',
+  'track-pants': 'joggers',
+  jumper: 'sweater',
+  pullover: 'sweater',
+  trainers: 'sneakers',
+  'running-shoes': 'sneakers',
+  loafers: 'shoes',
+  'dress-shoes': 'shoes',
+  oxfords: 'shoes',
+  slides: 'sandals',
+  'flip-flops': 'sandals',
+  slippers: 'sandals',
+  kolhapuris: 'juttis',
+  mojaris: 'juttis',
+  cap: 'hat',
+  beanie: 'hat',
+  earrings: 'jewellery',
+  necklace: 'jewellery',
+  bracelet: 'jewellery',
+  ring: 'jewellery',
+  jewelry: 'jewellery',
+  backpack: 'bag',
+  handbag: 'bag',
+  tote: 'bag',
+  wallet: 'other',
+  waistcoat: 'vest',
+  gilet: 'vest',
+  windbreaker: 'jacket',
+  'bomber-jacket': 'jacket',
+  'denim-jacket': 'jacket',
+  'leather-jacket': 'jacket',
+  stole: 'scarf',
+  sari: 'saree',
+  shawl: 'scarf',
+}
+
+const slug = (v) => String(v ?? '').toLowerCase().trim().replace(/[\s_]+/g, '-')
+
+/** Claude's type → a value from the list, or null. Takes "T-shirt", "tank top", "Sneaker", "trousers"... */
+export function readType(raw) {
+  const key = slug(raw)
+  if (!key) return null
+  const label = TYPES.find((t) => slug(t.label) === key)?.value
+  // Plural or singular: "kurtas", "dresses", "sneaker", "boot".
+  const forms = [key, `${key}s`, key.replace(/s$/, ''), key.replace(/es$/, '')]
+  for (const k of [...forms, label, ...forms.map((f) => TYPE_ALIASES[f])]) {
+    if (k && TYPE_BY_VALUE[k]) return k
+  }
+  return null
+}
+
+/** Claude's colour → a palette value, or null. "Dark grey" → charcoal, "olive green" → olive, "dark navy" → navy. */
+export function readColor(raw) {
+  const key = slug(raw).replace(/grey/g, 'gray')
+  if (COLOR_BY_VALUE[key]) return key
+  if (COLOR_BY_VALUE[COLOR_ALIASES[key]]) return COLOR_ALIASES[key]
+  const words = key.split('-')
+  if (words.length < 2) return null
+  return [words[0], words.at(-1)].find((w) => COLOR_BY_VALUE[w]) ?? null
+}
+
+/**
+ * Normalise Claude's tags against the vocabulary; unknown values are dropped.
+ * Returns null without a known type, unless `loose`: then a piece Claude named
+ * but typed oddly comes back with category null, for the owner to finish.
+ */
+export function cleanTags(raw, { loose = false } = {}) {
+  const category = readType(raw?.category)
+  if (!category && !(loose && slug(raw?.category) && raw?.name)) return null
   const colors = (Array.isArray(raw.colors) ? raw.colors : [raw.colors])
-    .map((c) => String(c ?? '').toLowerCase().trim().replace(/\s+/g, '-'))
-    .map((c) => COLOR_ALIASES[c] ?? c)
-    .filter((c) => COLOR_BY_VALUE[c])
+    .map(readColor)
+    .filter(Boolean)
     .filter((c, i, a) => a.indexOf(c) === i)
     .slice(0, 3)
   const text = (v, max) => (v == null ? '' : String(v).trim().slice(0, max))
@@ -183,15 +265,21 @@ export function cleanTags(raw) {
   }
 }
 
-/** Claude's answer for one photo → a filing plan (see planPieces), or null if it saw no clothing. */
+/**
+ * Claude's answer for one photo → a filing plan (see planPieces), or null if it
+ * saw no clothing. A piece with a type outside the list still gets its own cut
+ * (category null, for the owner to pick) rather than vanishing; it never leads.
+ */
 export function readTagAnswer(answer, { several = true } = {}) {
   const pieces = rawPieces(answer)
     .map((raw) => {
-      const tags = cleanTags(raw)
+      const tags = cleanTags(raw, { loose: true })
       return tags && { tags, box: readBox(raw?.box) }
     })
     .filter(Boolean)
-  return planPieces(pieces, { several })
+  const lead = pieces.findIndex((p) => p.tags.category)
+  if (lead < 0) return null
+  return planPieces([pieces[lead], ...pieces.filter((_, i) => i !== lead)], { several })
 }
 
 /**
@@ -206,7 +294,8 @@ export async function tagGarment(photo, { signal, several = true } = {}) {
   }
   let answer
   try {
-    answer = await sample.json(tagPrompt({ several }), { images: photo, modelTier: 'quick', signal })
+    // No answer cache: a photo is only ever sent again to get a fresh look (Re-tag, Retry).
+    answer = await sample.json(tagPrompt({ several }), { images: photo, modelTier: 'quick', signal, cache: false })
   } catch (err) {
     notePhotoError(err?.code)
     throw friendly(err, 'Couldn’t reach Claude to tag this piece. You can tag it yourself or retry.')

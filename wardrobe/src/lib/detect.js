@@ -3,10 +3,20 @@
 // as fractions of the photo ({ x, y, w, h }). Nothing here touches the DOM.
 
 export const MAX_PIECES = 6
-const MIN_SIDE = 0.06
+// A cut is at least this much of the photo on each side: a belt or a side-on shoe is thin, not missing.
+const MIN_SIDE = 0.08
+// Below this a box is a point or a line, not a place.
+const DEGENERATE = 0.01
 const SAME_SPOT = 0.6
 
 const clamp01 = (n) => Math.min(1, Math.max(0, n))
+
+/** Widen [a, z] around its middle to at least `min`, staying inside 0..1. */
+function atLeast(a, z, min) {
+  if (z - a >= min) return [a, z]
+  const mid = Math.min(1 - min / 2, Math.max(min / 2, (a + z) / 2))
+  return [mid - min / 2, mid + min / 2]
+}
 
 /** [l, t, r, b] on a 0-1000 grid (or as fractions) → { x, y, w, h }, or null if unusable. */
 export function readBox(raw) {
@@ -17,7 +27,9 @@ export function readBox(raw) {
   let [l, t, r, b] = nums.map((n) => clamp01(n / scale))
   if (l > r) [l, r] = [r, l]
   if (t > b) [t, b] = [b, t]
-  if (r - l < MIN_SIDE || b - t < MIN_SIDE) return null
+  if (r - l < DEGENERATE || b - t < DEGENERATE) return null
+  ;[l, r] = atLeast(l, r, MIN_SIDE)
+  ;[t, b] = atLeast(t, b, MIN_SIDE)
   return { x: l, y: t, w: r - l, h: b - t }
 }
 

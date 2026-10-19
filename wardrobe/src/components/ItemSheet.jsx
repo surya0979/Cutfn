@@ -281,7 +281,7 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
     if (!patch.category) return
     if (!patch.name) patch.name = `${patch.colors[0] ? colorWord(patch.colors[0]) + ' ' : ''}${typeLabel(patch.category).split(' / ')[0].toLowerCase()}`
     if (pending || !item.category || TAGS.some((k) => !same(patch[k], item[k]))) patch.tagSource = 'you'
-    if (pending) uploader.stopTagging(item.id)
+    uploader.stopTagging(item.id)
     actions.updateItem(item.id, patch)
     setEditing(false)
     showToast({ message: 'Saved' })
@@ -301,19 +301,29 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
     })
   }
 
+  // Claude's answer shows in the sheet, not under a form the owner hasn't touched.
+  const askClaude = () => {
+    setEditing(false)
+    uploader.retag(item)
+  }
+
   // A piece cut from a bigger photo can go back to the whole photo (Claude's cut was off).
+  // The cut is only deleted once the piece has really switched.
   const restoreWholePhoto = async () => {
     setRestoring(true)
+    let thumb
     try {
-      const { thumb } = await preparePhoto(await actions.photoBlob(item.whole))
-      await actions.updateItem(item.id, { photo: item.whole.photo, thumb, whole: null })
-      actions.dropPhoto(item, item.id)
-      showToast({ message: 'Showing the whole photo' })
+      ;({ thumb } = await preparePhoto(await actions.photoBlob(item.whole)))
     } catch {
       showToast({ message: 'The whole photo is gone, so this cut stays.' })
-    } finally {
       setRestoring(false)
+      return
     }
+    if (await actions.updateItem(item.id, { photo: item.whole.photo, thumb, whole: null })) {
+      actions.dropPhoto(item, item.id)
+      showToast({ message: 'Showing the whole photo' })
+    }
+    setRestoring(false)
   }
 
   // Editing: Save is the one red CTA. Viewing: Style this piece is. Each goes
@@ -392,7 +402,7 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
                 {!item.category ? ' Tag it below.' : ''}
               </p>
               {canTag && (
-                <Button size="sm" variant="secondary" className="self-start" onClick={() => uploader.retag(item)}>
+                <Button size="sm" variant="secondary" className="self-start" onClick={askClaude}>
                   Retry tagging
                 </Button>
               )}
@@ -402,7 +412,7 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
             <Notice className="flex flex-col gap-3">
               <p>{item.aiError || (canTag ? 'Tag it below so it can go into outfits, or let Claude do it from the photo.' : 'Tag this piece so it can go into outfits.')}</p>
               {canTag && (
-                <Button size="sm" variant="secondary" className="self-start" onClick={() => uploader.retag(item)}>
+                <Button size="sm" variant="secondary" className="self-start" onClick={askClaude}>
                   Tag with Claude
                 </Button>
               )}
@@ -417,7 +427,7 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
                 {item.description && <p className="text-[16px] md:mr-[12%]">{item.description}</p>}
                 <Details item={item} />
                 {item.laundry && <p className="text-[15px] text-muted md:ml-[20%]">In the wash, so it’s left out of outfit ideas.</p>}
-                {!pending && <TagSource item={item} canTag={canTag} onFix={() => setEditing(true)} onRetag={() => uploader.retag(item)} />}
+                {!pending && <TagSource item={item} canTag={canTag} onFix={() => setEditing(true)} onRetag={askClaude} />}
                 {item.whole && !pending && (
                   <div className="flex flex-col gap-3 md:ml-[20%]">
                     <p className="text-[15px]">Cut from a photo with other pieces in it.</p>
