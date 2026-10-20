@@ -253,7 +253,8 @@ function TagSource({ item, canTag, onFix, onRetag }) {
 export default function ItemSheet({ item, open, onClose, actions, uploader, canTag, onStyle, onDeleted, showToast }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(null)
-  const [restoring, setRestoring] = useState(false)
+  // The piece whose whole photo is loading back in (one sheet shows every piece).
+  const [restoring, setRestoring] = useState(null)
   // The fields the form started from, to tell the owner's changes from Claude's.
   const base = useRef(null)
   const startFrom = (fields) => {
@@ -315,9 +316,10 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
     onDeleted?.(item)
     showToast({
       message: `Deleted ${item.name || 'piece'}`,
-      onUndo: () => {
-        undo()
-        if (pending) uploader.retag(item)
+      // The piece comes back as it was when it went: if Claude was still on it, Claude carries on.
+      onUndo: async () => {
+        const back = await undo()
+        if (back.aiStatus === 'pending') uploader.retag({ ...back, id: item.id })
       },
     })
   }
@@ -327,20 +329,20 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
   // A piece cut from a bigger photo can go back to the whole photo (Claude's cut was off).
   // The cut is only deleted once the piece has really switched.
   const restoreWholePhoto = async () => {
-    setRestoring(true)
+    setRestoring(item.id)
     let thumb
     try {
       ;({ thumb } = await preparePhoto(await actions.photoBlob(item.whole)))
     } catch {
       showToast({ message: 'The whole photo is gone, so this cut stays.' })
-      setRestoring(false)
+      setRestoring(null)
       return
     }
     if (await actions.updateItem(item.id, { photo: item.whole.photo, thumb, whole: null })) {
       actions.dropPhoto(item, item.id)
       showToast({ message: 'Showing the whole photo' })
     }
-    setRestoring(false)
+    setRestoring(null)
   }
 
   // Editing: Save is the one red CTA. Viewing: Style this piece is. Each goes
@@ -375,7 +377,7 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
           }}
         />
         <QuickAction label="Edit" onClick={edit} />
-        <QuickAction label="Delete" onClick={remove} danger disabled={restoring} />
+        <QuickAction label="Delete" onClick={remove} danger disabled={restoring === item.id} />
       </div>
     </div>
   )
@@ -448,8 +450,8 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
                 {item.whole && !pending && (
                   <div className="flex flex-col gap-3 md:ml-[20%]">
                     <p className="text-[15px]">Cut from a photo with other pieces in it.</p>
-                    <Button size="sm" variant="secondary" className="self-start" onClick={restoreWholePhoto} disabled={restoring}>
-                      {restoring ? 'Loading the photo…' : 'Use the whole photo'}
+                    <Button size="sm" variant="secondary" className="self-start" onClick={restoreWholePhoto} disabled={restoring === item.id}>
+                      {restoring === item.id ? 'Loading the photo…' : 'Use the whole photo'}
                     </Button>
                   </div>
                 )}

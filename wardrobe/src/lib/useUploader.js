@@ -42,13 +42,14 @@ async function cutPieces(act, photo, pieces) {
  * File the cuts from one photo. The piece the photo was added as takes the
  * first cut before anything else is written; from then on the split stands
  * (the other pieces are separate garments), whatever happens to that piece.
- * Resolves undo(): back to one piece on the whole photo.
+ * That piece stays "tagging" until the rest are filed, and is only marked done
+ * if the job still owns it. Resolves undo(): back to one piece on the whole photo.
  */
-async function fileCuts(act, job, cuts, stop) {
+async function fileCuts(act, job, cuts, live, stop) {
   const whole = photoOf(job.stored)
   const [first, ...rest] = cuts
   const done = { aiStatus: 'done', aiError: null, tagSource: 'claude' }
-  const wrote = act.updateItem(job.id, { ...first.tags, ...done, ...photoOf(first), thumb: first.thumb, box: first.box, whole, splitFrom: job.id })
+  const wrote = act.updateItem(job.id, { ...first.tags, ...photoOf(first), thumb: first.thumb, box: first.box, whole, splitFrom: job.id })
   const extra = []
   for (const [i, c] of rest.entries()) {
     const piece = { id: makeId(), ...photoOf(c), thumb: c.thumb, ...c.tags, ...done, box: c.box, whole, splitFrom: job.id, createdAt: job.createdAt - (i + 1) / 100 }
@@ -56,6 +57,7 @@ async function fileCuts(act, job, cuts, stop) {
     extra.push(piece)
   }
   await wrote
+  if (live()) await act.updateItem(job.id, done)
 
   return async () => {
     for (const piece of extra) {
@@ -104,9 +106,9 @@ export function useUploader({ actions, items, ready, settings, onSplit, onTagFai
               return
             }
             if (cuts) {
-              const undo = await fileCuts(act, job, cuts, stopRef.current)
-              // Deleted meanwhile: the owner's Delete toast (and its Undo) stays on screen.
-              if (act.getItem(job.id)) hooks.current.onSplit?.({ count: cuts.length, undo })
+              const undo = await fileCuts(act, job, cuts, live, stopRef.current)
+              // Tagged by hand or deleted meanwhile: the owner's own toast (and its Undo) stays on screen.
+              if (live()) hooks.current.onSplit?.({ count: cuts.length, undo })
               return
             }
             // A photo that couldn't be cut stays one piece, tagged as its main piece.
@@ -187,10 +189,18 @@ export function useUploader({ actions, items, ready, settings, onSplit, onTagFai
     [pump],
   )
 
-  /** Start tagging one piece from its stored photo (or thumbnail). Skips it while Claude is turning photos away. */
+  /**
+   * Start tagging one piece from its stored photo (or thumbnail). While Claude is turning photos away it
+   * starts nothing; a piece left waiting on Claude (say, brought back by Undo) then goes to the owner.
+   */
   const startTag = useCallback(
     async (item) => {
-      if (jobs.current.has(item.id) || halted.current) return
+      if (jobs.current.has(item.id)) return
+      const act = actionsRef.current
+      const settle = async (status) => {
+        if (item.aiStatus === 'pending' || act.getItem(item.id)?.aiStatus === 'pending') await act.updateItem(item.id, status)
+      }
+      if (halted.current) return settle(halted.current)
       // Claimed before anything is awaited, so a second tap does nothing.
       const job = { id: item.id, ctl: new AbortController() }
       jobs.current.set(item.id, job)
@@ -200,8 +210,10 @@ export function useUploader({ actions, items, ready, settings, onSplit, onTagFai
         if (live()) jobs.current.delete(item.id)
         count()
       }
-      const act = actionsRef.current
-      if (!(await canSendImages())) return release()
+      if (!(await canSendImages())) {
+        release()
+        return settle({ aiStatus: 'manual', aiError: 'Claude can’t see photos in this view, so tag pieces yourself for now.' })
+      }
       let photo = null
       let fromThumb = false
       try {
@@ -228,6 +240,12 @@ export function useUploader({ actions, items, ready, settings, onSplit, onTagFai
       Object.assign(job, { photo, stored, thumb: item.thumb, createdAt: item.createdAt ?? Date.now(), several, solo: false })
       await act.updateItem(item.id, { aiStatus: 'pending', aiError: null })
       if (!live()) return
+      // Claude may have turned photos away while this one was getting ready.
+      if (halted.current) {
+        release()
+        await act.updateItem(item.id, halted.current)
+        return
+      }
       tagQueue.current.push(job)
       pump()
     },

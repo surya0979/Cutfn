@@ -323,22 +323,39 @@ export function useWardrobeStore() {
       },
       updateItem: patchItem,
       /** Delete a piece; returns undo(). Its photo is removed once the undo window passes. */
+      /**
+       * Delete a piece. Returns undo(), which resolves the piece as it came back. The piece is taken as it
+       * stood when the remove ran, which can be newer than the caller's copy (Claude cut its photo
+       * meanwhile): that is what Undo brings back, and every photo either shows stays until the window closes.
+       */
       deleteItem: (item, undoMs = 9000) => {
-        // The stored piece can be newer than the caller's copy (Claude gave it a cut meanwhile): both count.
-        const stored = find('items', item.id)
-        const refs = [item, item.whole, stored, stored?.whole].filter(Boolean)
-        const removed = queued(`items:${item.id}`, () => adapter.remove('items', item.id))
+        let latest = find('items', item.id) ?? item
+        const removed = queued(`items:${item.id}`, () => {
+          latest = find('items', item.id) ?? latest
+          return adapter.remove('items', item.id)
+        })
+        const refs = () => [item, item.whole, latest, latest.whole].filter(Boolean)
         const timer = setTimeout(async () => {
           pendingPhotoDeletes.delete(item.id)
           // A remove that failed leaves the piece, and its photos with it.
           if (!(await removed) || find('items', item.id)) return
-          for (const ref of refs) dropPhoto(ref, item.id)
+          for (const ref of refs()) dropPhoto(ref, item.id)
         }, undoMs)
-        pendingPhotoDeletes.set(item.id, { timer, refs })
-        return () => {
+        pendingPhotoDeletes.set(item.id, {
+          timer,
+          get refs() {
+            return refs()
+          },
+        })
+        return async () => {
           clearTimeout(pendingPhotoDeletes.get(item.id)?.timer)
           pendingPhotoDeletes.delete(item.id)
-          queued(`items:${item.id}`, () => adapter.put('items', item.id, item))
+          let back = latest
+          await queued(`items:${item.id}`, () => {
+            back = latest
+            return adapter.put('items', item.id, back)
+          })
+          return back
         }
       },
       setLaundry: (ids, inLaundry) => {
