@@ -40,26 +40,24 @@ async function cutPieces(act, photo, pieces) {
 
 /**
  * File the cuts from one photo. The piece the photo was added as takes the
- * first cut before anything else is written; from then on the split stands
- * (the other pieces are separate garments), whatever happens to that piece.
- * That piece stays "tagging" until the rest are filed, and is only marked done
- * if the job still owns it. Resolves undo(): back to one piece on the whole photo.
+ * first cut (with Claude's tags) before anything else is written; from then on
+ * the split stands (the other pieces are separate garments), whatever happens
+ * to that piece. It still reads "tagging" until the caller marks it done.
+ * Resolves { ok: whether that first write saved, undo(): back to one piece on the whole photo }.
  */
-async function fileCuts(act, job, cuts, live, stop) {
+async function fileCuts(act, job, cuts, stop) {
   const whole = photoOf(job.stored)
   const [first, ...rest] = cuts
-  const done = { aiStatus: 'done', aiError: null, tagSource: 'claude' }
-  const wrote = act.updateItem(job.id, { ...first.tags, ...photoOf(first), thumb: first.thumb, box: first.box, whole, splitFrom: job.id })
+  const wrote = act.updateItem(job.id, { ...first.tags, ...photoOf(first), thumb: first.thumb, box: first.box, whole, splitFrom: job.id, tagSource: 'claude' })
   const extra = []
   for (const [i, c] of rest.entries()) {
-    const piece = { id: makeId(), ...photoOf(c), thumb: c.thumb, ...c.tags, ...done, box: c.box, whole, splitFrom: job.id, createdAt: job.createdAt - (i + 1) / 100 }
+    const piece = { id: makeId(), ...photoOf(c), thumb: c.thumb, ...c.tags, aiStatus: 'done', aiError: null, tagSource: 'claude', box: c.box, whole, splitFrom: job.id, createdAt: job.createdAt - (i + 1) / 100 }
     await act.addItem(piece)
     extra.push(piece)
   }
-  await wrote
-  if (live()) await act.updateItem(job.id, done)
+  const ok = await wrote
 
-  return async () => {
+  const undo = async () => {
     for (const piece of extra) {
       stop(piece.id)
       act.deleteItem(piece)
@@ -67,6 +65,7 @@ async function fileCuts(act, job, cuts, live, stop) {
     // The cut goes only once the piece really shows the whole photo again.
     if (await act.updateItem(job.id, { ...whole, thumb: job.thumb, whole: null, splitFrom: null, box: null })) act.dropPhoto(first, job.id)
   }
+  return { ok, undo }
 }
 
 export function useUploader({ actions, items, ready, settings, onSplit, onTagFailed }) {
@@ -106,9 +105,15 @@ export function useUploader({ actions, items, ready, settings, onSplit, onTagFai
               return
             }
             if (cuts) {
-              const undo = await fileCuts(act, job, cuts, live, stopRef.current)
-              // Tagged by hand or deleted meanwhile: the owner's own toast (and its Undo) stays on screen.
-              if (live()) hooks.current.onSplit?.({ count: cuts.length, undo })
+              const { ok, undo } = await fileCuts(act, job, cuts, stopRef.current)
+              // Tagged by hand or deleted meanwhile (here or on another device): the owner's word stands,
+              // and their own toast (with its Undo) stays on screen.
+              if (!live() || !act.getItem(job.id)) return
+              // Let go before the last write, so Re-tag works the moment the piece reads done.
+              jobs.current.delete(job.id)
+              count()
+              act.updateItem(job.id, ok ? { aiStatus: 'done', aiError: null } : { aiStatus: 'failed', aiError: 'Couldn’t save Claude’s tags for this piece. Retry, or tag it yourself.' })
+              if (ok) hooks.current.onSplit?.({ count: cuts.length, undo })
               return
             }
             // A photo that couldn't be cut stays one piece, tagged as its main piece.
@@ -170,7 +175,10 @@ export function useUploader({ actions, items, ready, settings, onSplit, onTagFai
           const waiting = halted.current ?? { aiStatus: 'manual', aiError: null }
           await actionsRef.current.addItem({ id, ...stored, thumb, name: '', category: null, colors: [], ...(tag ? { aiStatus: 'pending' } : waiting), createdAt })
           ids.push(id)
-          if (tag) {
+          // Claude may have turned photos away while this one was being saved.
+          if (tag && halted.current) {
+            await actionsRef.current.updateItem(id, halted.current)
+          } else if (tag) {
             tagging = true
             const job = { id, ctl: new AbortController(), photo: full, stored, thumb, createdAt, several: splitFor(stored), solo: files.length === 1 }
             jobs.current.set(id, job)
@@ -198,7 +206,7 @@ export function useUploader({ actions, items, ready, settings, onSplit, onTagFai
       if (jobs.current.has(item.id)) return
       const act = actionsRef.current
       const settle = async (status) => {
-        if (item.aiStatus === 'pending' || act.getItem(item.id)?.aiStatus === 'pending') await act.updateItem(item.id, status)
+        if ((act.getItem(item.id) ?? item).aiStatus === 'pending') await act.updateItem(item.id, status)
       }
       if (halted.current) return settle(halted.current)
       // Claimed before anything is awaited, so a second tap does nothing.
@@ -211,8 +219,10 @@ export function useUploader({ actions, items, ready, settings, onSplit, onTagFai
         count()
       }
       if (!(await canSendImages())) {
+        const mine = live()
         release()
-        return settle({ aiStatus: 'manual', aiError: 'Claude can’t see photos in this view, so tag pieces yourself for now.' })
+        if (mine) await settle({ aiStatus: 'manual', aiError: 'Claude can’t see photos in this view, so tag pieces yourself for now.' })
+        return
       }
       let photo = null
       let fromThumb = false
@@ -261,6 +271,28 @@ export function useUploader({ actions, items, ready, settings, onSplit, onTagFai
     [startTag],
   )
 
+  /**
+   * After Undo brings a deleted piece back (`restored` resolves it as it came back, or null). The piece is
+   * claimed in the same tap, so a hand save made while it comes back wins. If Claude was still on it,
+   * Claude carries on; a piece that already has its cut and tags from a split is simply done.
+   */
+  const resume = useCallback(
+    async (id, restored) => {
+      if (jobs.current.has(id)) return
+      const hold = { id, ctl: new AbortController() }
+      jobs.current.set(id, hold)
+      count()
+      const back = await restored
+      if (jobs.current.get(id) !== hold) return
+      jobs.current.delete(id)
+      count()
+      if (back?.aiStatus !== 'pending') return
+      if (back.category && back.splitFrom) return actionsRef.current.updateItem(id, { aiStatus: 'done', aiError: null })
+      return startTag({ ...back, id })
+    },
+    [startTag],
+  )
+
   /** Ask Claude to tag every piece in the list (one tap, never automatic); stops as soon as Claude turns photos away. */
   const retagFailed = useCallback(
     async (list) => {
@@ -304,6 +336,7 @@ export function useUploader({ actions, items, ready, settings, onSplit, onTagFai
     addPhotos,
     retag,
     retagFailed,
+    resume,
     stopTagging,
     clearErrors: () => bump(() => ({ errors: [] })),
   }

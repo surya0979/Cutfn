@@ -324,7 +324,7 @@ export function useWardrobeStore() {
       updateItem: patchItem,
       /** Delete a piece; returns undo(). Its photo is removed once the undo window passes. */
       /**
-       * Delete a piece. Returns undo(), which resolves the piece as it came back. The piece is taken as it
+       * Delete a piece. Returns undo(), which resolves the piece as it came back (null if it couldn't). The piece is taken as it
        * stood when the remove ran, which can be newer than the caller's copy (Claude cut its photo
        * meanwhile): that is what Undo brings back, and every photo either shows stays until the window closes.
        */
@@ -349,13 +349,16 @@ export function useWardrobeStore() {
         })
         return async () => {
           clearTimeout(pendingPhotoDeletes.get(item.id)?.timer)
-          pendingPhotoDeletes.delete(item.id)
           let back = latest
-          await queued(`items:${item.id}`, () => {
+          const ok = await queued(`items:${item.id}`, () => {
             back = latest
             return adapter.put('items', item.id, back)
           })
-          return back
+          // Its photos stay counted as in use until the piece is really back (or really gone).
+          pendingPhotoDeletes.delete(item.id)
+          if (ok) return back
+          for (const ref of refs()) dropPhoto(ref, item.id)
+          return null
         }
       },
       setLaundry: (ids, inLaundry) => {

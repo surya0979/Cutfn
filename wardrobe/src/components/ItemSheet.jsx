@@ -253,8 +253,9 @@ function TagSource({ item, canTag, onFix, onRetag }) {
 export default function ItemSheet({ item, open, onClose, actions, uploader, canTag, onStyle, onDeleted, showToast }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(null)
-  // The piece whose whole photo is loading back in (one sheet shows every piece).
-  const [restoring, setRestoring] = useState(null)
+  // Pieces whose whole photo is loading back in (one sheet shows every piece).
+  const [restoring, setRestoring] = useState(() => new Set())
+  const restoringThis = item ? restoring.has(item.id) : false
   // The fields the form started from, to tell the owner's changes from Claude's.
   const base = useRef(null)
   const startFrom = (fields) => {
@@ -270,21 +271,23 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, item?.id])
 
-  // Claude's tags land while the sheet is open. Viewing, they show. Editing, they fill every field the
-  // owner hasn't touched, and a form the owner never touched closes to show them. If Claude gives up on
-  // an untagged piece, the form takes over.
+  // Claude's tags land while the sheet is open (a split piece gets them while it still reads "tagging").
+  // Viewing, they show. Editing, they fill every field the owner hasn't touched, and once the piece is
+  // done a form the owner never touched closes to show them. If Claude gives up on an untagged piece,
+  // the form takes over.
+  const tagged = item ? JSON.stringify(TAGS.map((k) => item[k] ?? null)) : ''
   useEffect(() => {
     if (!open || !item) return
-    if (item.aiStatus === 'done') {
+    if (item.aiStatus === 'done' || (item.aiStatus === 'pending' && item.category)) {
       const next = fieldsOf(item)
       const touched = editing && draft ? EDITABLE.filter((k) => !same(draft[k], base.current?.[k])) : []
-      if (editing && !touched.length) setEditing(false)
+      if (editing && !touched.length && item.aiStatus === 'done') setEditing(false)
       startFrom(touched.length ? { ...next, ...Object.fromEntries(touched.map((k) => [k, draft[k]])) } : next)
       base.current = next
     }
     if ((item.aiStatus === 'failed' || item.aiStatus === 'manual') && !item.category) setEditing(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item?.aiStatus])
+  }, [item?.aiStatus, tagged])
 
   // Edit always starts from the piece as it is now.
   const edit = () => {
@@ -317,10 +320,7 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
     showToast({
       message: `Deleted ${item.name || 'piece'}`,
       // The piece comes back as it was when it went: if Claude was still on it, Claude carries on.
-      onUndo: async () => {
-        const back = await undo()
-        if (back.aiStatus === 'pending') uploader.retag({ ...back, id: item.id })
-      },
+      onUndo: () => uploader.resume(item.id, undo()),
     })
   }
 
@@ -329,20 +329,22 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
   // A piece cut from a bigger photo can go back to the whole photo (Claude's cut was off).
   // The cut is only deleted once the piece has really switched.
   const restoreWholePhoto = async () => {
-    setRestoring(item.id)
+    const id = item.id
+    const done = () => setRestoring((ids) => new Set([...ids].filter((x) => x !== id)))
+    setRestoring((ids) => new Set(ids).add(id))
     let thumb
     try {
       ;({ thumb } = await preparePhoto(await actions.photoBlob(item.whole)))
     } catch {
       showToast({ message: 'The whole photo is gone, so this cut stays.' })
-      setRestoring(null)
+      done()
       return
     }
     if (await actions.updateItem(item.id, { photo: item.whole.photo, thumb, whole: null })) {
       actions.dropPhoto(item, item.id)
       showToast({ message: 'Showing the whole photo' })
     }
-    setRestoring(null)
+    done()
   }
 
   // Editing: Save is the one red CTA. Viewing: Style this piece is. Each goes
@@ -377,7 +379,7 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
           }}
         />
         <QuickAction label="Edit" onClick={edit} />
-        <QuickAction label="Delete" onClick={remove} danger disabled={restoring === item.id} />
+        <QuickAction label="Delete" onClick={remove} danger disabled={restoringThis} />
       </div>
     </div>
   )
@@ -450,8 +452,8 @@ export default function ItemSheet({ item, open, onClose, actions, uploader, canT
                 {item.whole && !pending && (
                   <div className="flex flex-col gap-3 md:ml-[20%]">
                     <p className="text-[15px]">Cut from a photo with other pieces in it.</p>
-                    <Button size="sm" variant="secondary" className="self-start" onClick={restoreWholePhoto} disabled={restoring === item.id}>
-                      {restoring === item.id ? 'Loading the photo…' : 'Use the whole photo'}
+                    <Button size="sm" variant="secondary" className="self-start" onClick={restoreWholePhoto} disabled={restoringThis}>
+                      {restoringThis ? 'Loading the photo…' : 'Use the whole photo'}
                     </Button>
                   </div>
                 )}
